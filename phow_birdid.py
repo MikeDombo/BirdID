@@ -20,9 +20,10 @@ import pylab as pl
 from datetime import datetime
 from sklearn.kernel_approximation import AdditiveChi2Sampler
 from cPickle import dump, load
+import argparse
 
 
-IDENTIFIER = '05.04.13'
+IDENTIFIER = '2014-04-17-UR'
 SAVETODISC = False
 FEATUREMAP = True
 OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
@@ -293,6 +294,17 @@ def computeHistograms(all_images, model, conf):
 ###############
 
 if __name__ == '__main__':
+    ################################
+    # Handle command-line arguments
+    ################################
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--sample_seed_arg", help="Seed for choosing training sample", type=int)
+    args = parser.parse_args()
+
+    if args.sample_seed_arg:
+        SAMPLE_SEED = args.sample_seed_arg
+
+    print "SAMPLE_SEED = " + str(SAMPLE_SEED)
     seed(SAMPLE_SEED)
     conf = Configuration(IDENTIFIER)
     if VERBOSE: print str(datetime.now()) + ' finished conf'
@@ -396,6 +408,6 @@ if __name__ == '__main__':
     ################         
     print "accuracy =" + str(accuracy)
     print cm
-    print str(datetime.now()) + ' run complete with seed = ' + str( SIMPLE_SEED )
+    print str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED )
     # Pop up a graph of the confusion matrix
     #showconfusionmatrix(cm)
