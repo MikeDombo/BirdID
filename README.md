@@ -1,9 +1,9 @@
-phow_caltech101.py
+phow_birdid.py
 ==================
 
-Script for content based image classification using the bag of visual words approach.
+Script for content based image classification using the bag of visual words approach, based on the phow_caltech101.py port by Ludwig Schmidt-Hackenberg, which was itself based on the phow_caltech101.m Matlab script by Andrea Vedaldi.
 
-The script is a Python version of [phow_caltech101.m][1], a 'one file' example script using the [VLFeat library][6] to train and evaluate a image classifier on the [Caltech-101 data set][4]. 
+The script is a Python version of [phow_caltech101.m][1], a 'one file' example script using the [VLFeat library][6] to train and evaluate a image classifier on the [Caltech-101 data set][4]. It has been adapted to use a set of images of birds rather than the Caltech 101 image library.
 
 Like the original Matlab version this Python script achieves the same (State-of-the-Art in 2008) average accuracy of around 65% as the original file:
 
@@ -28,7 +28,11 @@ The code also works with other datasets if the images are organized like in the 
         ...
     |    └-- classN
 
-There are no constraints for the names of the files or folders. File extensions can be configures in [`conf.extensions`][7]
+There are no constraints for the names of the files or folders. File extensions can be configures in [`conf.extensions`][7] But note that the code fails with a segmentation fault (on Mac OS X 10.8.5, at least) when the images are PNGs.
+
+Changes from phow_caltech101.py:
+
+- Added command line argument --sample_seed_arg to set the seed used for generating the random split of training and test images
 
 Requisite:
 
