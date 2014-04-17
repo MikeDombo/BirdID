@@ -299,14 +299,46 @@ if __name__ == '__main__':
     ################################
     parser = argparse.ArgumentParser()
     parser.add_argument("--sample_seed_arg", help="Seed for choosing training sample", type=int)
+    parser.add_argument("--image_dir",
+                        help="Path to directory containing images")
+    parser.add_argument("--num_classes",
+                        help="Number of categories in image set",
+                        type=int)
+    parser.add_argument("--num_train",
+                        help="Number of training images to use from each category",
+                        type=int)
+    parser.add_argument("--num_test",
+                        help="Number of test images to use from each catetory",
+                        type=int)
+
     args = parser.parse_args()
 
     if args.sample_seed_arg:
         SAMPLE_SEED = args.sample_seed_arg
-
-    print "SAMPLE_SEED = " + str(SAMPLE_SEED)
+        if VERBOSE: print "SAMPLE_SEED = " + str(SAMPLE_SEED)
+        
     seed(SAMPLE_SEED)
+
+    # Load default configuration
     conf = Configuration(IDENTIFIER)
+
+    # Update configuration from cmd line args
+    if args.image_dir:
+        conf.calDir = args.image_dir
+        if VERBOSE: print "Image dir: " + conf.calDir
+
+    if args.num_classes:
+        conf.numClasses = args.num_classes
+        if VERBOSE: print "numClasses = " + str(conf.numClasses)
+
+    if args.num_train:
+        conf.numTrain = args.num_train
+        if VERBOSE: print "numTrain = " + str(conf.numTrain)
+
+    if args.num_test:
+        conf.numTest = args.num_test
+        if VERBOSE: print "numTest = " + str(conf.numTest)
+    
     if VERBOSE: print str(datetime.now()) + ' finished conf'
 
     classes = get_classes(conf.calDir, conf.numClasses)
