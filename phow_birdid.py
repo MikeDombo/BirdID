@@ -311,6 +311,12 @@ if __name__ == '__main__':
                         help="Number of test images to use from each catetory",
                         type=int)
 
+    parser.add_argument("--dsift_size",
+                        action='store',
+                        help="Size for vl_dsift features, follow with any number of integer values",
+                        type=int,
+                        nargs='*')
+
     args = parser.parse_args()
 
     if args.sample_seed_arg:
@@ -338,6 +344,10 @@ if __name__ == '__main__':
     if args.num_test:
         conf.numTest = args.num_test
         if VERBOSE: print "numTest = " + str(conf.numTest)
+
+    if args.dsift_size:
+        conf.phowOpts.Sizes = args.dsift_size
+        if VERBOSE: print "phowOpts.Sizes = ", conf.phowOpts.Sizes
     
     if VERBOSE: print str(datetime.now()) + ' finished conf'
 
