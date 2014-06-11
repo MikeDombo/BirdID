@@ -24,6 +24,8 @@ import argparse
 
 
 IDENTIFIER = '2014-04-17-UR'
+PREFIX = 'baseline'
+
 SAVETODISC = False
 FEATUREMAP = True
 OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
@@ -36,7 +38,7 @@ MULTIPROCESSING = False
 
 
 class Configuration(object):
-    def __init__(self, identifier=''):
+    def __init__(self, identifier='', prefix=''):
         # Path to image folder
         #self.calDir = '../../../datasets/Caltech/101_ObjectCategories'
         #self.calDir = '../../../data/101_ObjectCategories'
@@ -64,7 +66,7 @@ class Configuration(object):
         self.phowOpts = PHOWOptions(Verbose=False, Sizes=[4, 6, 8, 10], Step=3)
         self.clobber = False
         self.tinyProblem = TINYPROBLEM
-        self.prefix = 'baseline'
+        self.prefix = prefix
         self.randSeed = 11
         self.verbose = True
         self.extensions = [".jpg", ".jpeg", ".bmp", ".png", ".pgm", ".tif", ".tiff"]
@@ -73,8 +75,8 @@ class Configuration(object):
         
         self.vocabPath = join(self.dataDir, identifier + '-vocab.py.mat')
         self.histPath = join(self.dataDir, identifier + '-hists.py.mat')
-        self.modelPath = join(self.dataDir, self.prefix + identifier + '-model.py.mat')
-        self.resultPath = join(self.dataDir, self.prefix + identifier + '-result')
+        self.modelPath = join(self.dataDir, self.prefix + '-' + identifier + '-model.py.mat')
+        self.resultPath = join(self.dataDir, self.prefix + '-' + identifier + '-result')
         
         if self.tinyProblem:
             print "Using 'tiny' protocol with different parameters than the .m code"
@@ -298,15 +300,26 @@ if __name__ == '__main__':
     # Handle command-line arguments
     ################################
     parser = argparse.ArgumentParser()
-    parser.add_argument("--sample_seed_arg", help="Seed for choosing training sample", type=int)
+    parser.add_argument("--sample_seed_arg", 
+        help="Seed for choosing training sample", type=int)
+
+    parser.add_argument("--identifier",
+        help="Identifier for this data set. Should not contain the character '-'")
+    
+    parser.add_argument("--prefix",
+        help="Tag used to distinguish versions of a data set")
+
     parser.add_argument("--image_dir",
                         help="Path to directory containing images")
+
     parser.add_argument("--num_classes",
                         help="Number of categories in image set",
                         type=int)
+
     parser.add_argument("--num_train",
                         help="Number of training images to use from each category",
                         type=int)
+
     parser.add_argument("--num_test",
                         help="Number of test images to use from each catetory",
                         type=int)
@@ -325,8 +338,16 @@ if __name__ == '__main__':
         
     seed(SAMPLE_SEED)
 
+    if args.identifier:
+        IDENTIFIER = args.identifier
+        if VERBOSE: print "IDENTIFER = " + IDENTIFIER
+
+    if args.prefix:
+        PREFIX = args.prefix
+        if VERBOSE: print "PREFIX = " + PREFIX
+
     # Load default configuration
-    conf = Configuration(IDENTIFIER)
+    conf = Configuration(IDENTIFIER, PREFIX)
 
     # Update configuration from cmd line args
     if args.image_dir:
