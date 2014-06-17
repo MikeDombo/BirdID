@@ -19,7 +19,12 @@ from cPickle import dump, load
 VERBOSE = True
 IDENTIFIER = '20140613UR'
 PREFIX = 'baseline'
+
+# Note that the code doesn't actually check to see if the current seed is
+# different from the seed that generated the existing files - basically,
+# if this flag is True, all existing files will be ignored and overwritten
 OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
+
 #SAMPLE_SEED = 42
 #SAMPLE_SEED = 111
 SAMPLE_SEED = 83150245
@@ -77,7 +82,7 @@ if __name__ == '__main__':
         if VERBOSE: print "IDENTIFER = " + IDENTIFIER
 
     if args.prefix:
-        Pbirdid_utils.REFIX = args.prefix
+        birdid_utils.REFIX = args.prefix
         if VERBOSE: print "PREFIX = " + PREFIX
 
     # Load default configuration
