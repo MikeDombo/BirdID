@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Python rewrite of http: //www.vlfeat.org/applications/caltech-101-code.html
+Python rewrite of http://www.vlfeat.org/applications/caltech-101-code.html
 This script does the same thing as phow_birdid.py (the original 
     phow_caltech101.py adapted for the BirdID project) but works with
     the methods it uses split out into a separate module.
@@ -23,7 +23,7 @@ PREFIX = 'baseline'
 # Note that the code doesn't actually check to see if the current seed is
 # different from the seed that generated the existing files - basically,
 # if this flag is True, all existing files will be ignored and overwritten
-OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
+OVERWRITE = False  # DON'T load mat files generated with a different seed!!!
 
 #SAMPLE_SEED = 42
 #SAMPLE_SEED = 111
@@ -69,6 +69,10 @@ if __name__ == '__main__':
                         type=int,
                         nargs='*')
 
+    parser.add_argument("--overwrite", 
+                        action="store_true",
+                        help="Overwrite existing model files")
+
     args = parser.parse_args()
 
     if args.sample_seed_arg:
@@ -110,6 +114,9 @@ if __name__ == '__main__':
         if VERBOSE: print "phowOpts.Sizes = ", conf.phowOpts.Sizes
     
     if VERBOSE: print str(datetime.now()) + ' finished conf'
+
+    if args.overwrite:
+        OVERWRITE = True
 
     classes = birdid_utils.get_classes(conf.inputDir, conf.numClasses)
     print "Class names" , classes
