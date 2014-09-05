@@ -3,7 +3,8 @@ phow_birdid.py
 
 Script for content based image classification using the bag of visual words approach, based on the phow_caltech101.py port by Ludwig Schmidt-Hackenberg, which was itself based on the phow_caltech101.m Matlab script by Andrea Vedaldi.
 
-The script is a Python version of [phow_caltech101.m][1], a 'one file' example script using the [VLFeat library][6] to train and evaluate a image classifier on the [Caltech-101 data set][4]. It has been adapted to use a set of images of birds rather than the Caltech 101 image library.
+The script is a Python version of [phow_caltech101.m][1], a 'one file' example script using the [VLFeat library][6] to train and evaluate an image classifier 
+on the [Caltech-101 data set][4]. It has been adapted to use a set of images of birds rather than the Caltech 101 image library.
 
 Like the original Matlab version this Python script achieves the same (State-of-the-Art in 2008) average accuracy of around 65% as the original file:
 
@@ -28,11 +29,39 @@ The code also works with other datasets if the images are organized like in the 
         ...
     |    └-- classN
 
-There are no constraints for the names of the files or folders. File extensions can be configures in [`conf.extensions`][7] But note that the code fails with a segmentation fault (on Mac OS X 10.8.5, at least) when the images are PNGs.
+There are no constraints for the names of the files or folders. File extensions can be configured in [`conf.extensions`][7] But note that the code fails with a segmentation fault (on Mac OS X 10.8.5, at least) when the images are PNGs.
 
 Changes from phow_caltech101.py:
 
 - Added command line argument --sample_seed_arg to set the seed used for generating the random split of training and test images
+- Added command line argument --identifier to set the data set
+identification tag
+- Added the --prefix command line argument for the prefix to distinguish between
+versions of a data set
+- Added the --image_dir command line argument to allow the path to the folder
+containing the images to use to be specified at runtime
+- Added the --num_classes command line argument to allow the number of classes
+represented in the data set to be specified at runtime
+- Added the --num_train command line argument to allow the number of training
+images to use from each class to be specified at runtime
+- Added the --num_test command line argument to allow the number of test
+examples to use from each class to be specified at runtime
+- Added the --dsift_size command line argument to allow the number of features
+used in the vl_dsift method to be specified at runtime.
+
+Also added two additional files to the project:
+
+phow_train.py
+
+This file does only the training stage of the process, writing out the 
+constructed model for use in classification or validation. Uses the
+birdid_utils module, which contains helper code extracted from 
+phow_birdid.py
+
+phow_validate.py:
+
+This file does the same thing as phow_birdid.py, but it works with the 
+birdid_utils module rather than being self-contained.
 
 Requisite:
 
