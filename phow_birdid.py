@@ -110,7 +110,7 @@ def ensure_type_array(data):
     return data
 
 
-def standarizeImage(im):
+def standardizeImage(im):
     im = array(im, 'float32') 
     if im.shape[0] > 480:
         resize_factor = 480.0 / im.shape[0]  # don't remove trailing .0 to avoid integer devision
@@ -123,7 +123,7 @@ def standarizeImage(im):
 
 
 def getPhowFeatures(imagedata, phowOpts):
-    im = standarizeImage(imagedata)
+    im = standardizeImage(imagedata)
     frames, descrs = vl_phow(im,
                              verbose=phowOpts.Verbose,
                              sizes=phowOpts.Sizes,
@@ -132,7 +132,7 @@ def getPhowFeatures(imagedata, phowOpts):
 
 
 def getImageDescriptor(model, im):
-    im = standarizeImage(im)
+    im = standardizeImage(im)
     height, width = im.shape[:2]
     numWords = model.vocab.shape[1]
 
