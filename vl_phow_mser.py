@@ -1,5 +1,5 @@
 from scipy import shape, dstack, sqrt, floor, array, mean, ones, vstack, hstack, ndarray
-from vlfeat import vl_rgb2gray, vl_imsmooth, vl_dsift
+from vlfeat import vl_rgb2gray, vl_imsmooth, vl_dsift, vl_mser
 from sys import maxint
 
 """
@@ -15,15 +15,27 @@ def vl_phow(im,
             fast=True,
             sizes=[4, 6, 8, 10],
             step=2,
-            color='rgb',
+            color='gray',
             floatdescriptors=False,
             magnif=6,
             windowsize=1.5,
-            contrastthreshold=0.005):
+            contrastthreshold=0.005
+            data = im,
+            delta = 10,
+            max_area = 16,
+            min_area = 8,
+            max_variation = 0.2,
+            min_diversity = 0.7):
+            #gray color needed for MSER.
+            #The data would the be list of images.
 
-    opts = Options(verbose, fast, sizes, step, color, floatdescriptors,
-                   magnif, windowsize, contrastthreshold)
-    dsiftOpts = DSiftOptions(opts)
+
+    opts = Options(verbose, fast, sizes, step, color,
+                   floatdescriptors, magnif, windowsize,
+                   contrastthreshold, data, delta, max_area,
+                   min_area, max_variation, min_diversity)
+
+    mserOpts = MSEROptions(opts)
 
     # make sure image is float, otherwise segfault
     im = array(im, 'float32')
@@ -91,14 +103,13 @@ def vl_phow(im,
         descrs = []
         for k in range(numChannels):
             size_of_spatial_bins = int(size_of_spatial_bins)
-            # vl_dsift does not accept numpy.int64 or similar
-            f_temp, d_temp = vl_dsift(data=ims[:, :, k],
-                                      step=dsiftOpts.step,
-                                      size=size_of_spatial_bins,
-                                      fast=dsiftOpts.fast,
-                                      verbose=dsiftOpts.verbose,
-                                      norm=dsiftOpts.norm,
-                                      bounds=[off, off, maxint, maxint])
+            #vl_mser extract
+            f_temp, d_temp = vl_mser(data=ims[:, :, k],
+                                     delta=mserOpts.delta,
+                                     max_area=mserOpts.max_area,
+                                     min_area=mserOpts.min_area,
+                                     max_variation=mserOpts.max_variation,
+                                     min_diversity=mserOpts.min_diversity)
             frames.append(f_temp)
             descrs.append(d_temp)
         frames = array(frames)
@@ -131,7 +142,8 @@ def vl_phow(im,
 class Options(object):
     def __init__(self, verbose, fast, sizes, step, color,
                  floatdescriptors, magnif, windowsize,
-                 contrastthreshold):
+                 contrastthreshold, data, delta, max_area,
+                 min_area, max_variation, min_diversity):
         self.verbose = verbose
         self.fast = fast
         if (type(sizes) is not ndarray) & (type(sizes) is not list):
@@ -143,6 +155,34 @@ class Options(object):
         self.magnif = magnif
         self.windowsize = windowsize
         self.contrastthreshold = contrastthreshold
+
+        **********************************************
+        ***           Parameters of MSER           ***
+        **********************************************
+        self.data = data;
+        self.delta = delta;
+        self.max_area = max_area;
+        self.min_area = min_area;
+        self.max_variation = max_variation;
+        self.min_diversity = min_diversity;
+
+
+
+class MSEROptions(object):
+    def __init__(self, opts):
+      self.norm = True
+      self.windowsize = opts.windowsize
+      self.verbose = opts.verbose
+      self.fast = opts.fast
+      self.floatdescriptors = opts.floatdescriptors
+      self.step = opts.step
+      self.data = opts.data;
+      self.delta = opts.delta;
+      self.max_area = opts.max_area;
+      self.min_area = opts.min_area;
+      self.max_variation = opts.max_variation;
+      self.min_diversity = opts.min_diversity;
+
 
 
 class DSiftOptions(object):
