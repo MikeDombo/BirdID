@@ -10,7 +10,7 @@ Python rewrite of https://github.com/vlfeat/vlfeat/blob/master/toolbox/sift/vl_p
 """
 
 
-def vl_phow(im,
+def vl_phow_mser(im,
             verbose=True,
             fast=True,
             sizes=[4, 6, 8, 10],
@@ -20,12 +20,12 @@ def vl_phow(im,
             magnif=6,
             windowsize=1.5,
             contrastthreshold=0.005
-            data = im,
-            delta = 10,
-            max_area = 16,
-            min_area = 8,
-            max_variation = 0.2,
-            min_diversity = 0.7):
+            data,
+            delta = 5,
+            max_area = 75,
+            min_area = .0002,
+            max_variation = 0.25,
+            min_diversity = 0.2):
             #gray color needed for MSER.
             #The data would the be list of images.
 
