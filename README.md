@@ -1,4 +1,4 @@
-phow_birdid.py
+# BirdID
 ==================
 
 Script for content based image classification using the bag of visual words approach, based on the phow_caltech101.py port by Ludwig Schmidt-Hackenberg, which was itself based on the phow_caltech101.m Matlab script by Andrea Vedaldi.
