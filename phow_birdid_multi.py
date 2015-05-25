@@ -289,6 +289,20 @@ def computeHistograms(all_images, model, conf):
 	print ""
 	return hists
 
+def saveCSV(file, accuracy):
+	dat = []
+	dat.append(datetime.now())
+	dat.append(str(PREFIX))
+	dat.append(str(IDENTIFIER))
+	dat.append(str(conf.phowOpts.Sizes))
+	dat.append(str(SAMPLE_SEED))
+	dat.append(str(accuracy))
+	mode = 'w'
+	if isfile(str(file)):
+		mode = 'a'
+		with open(str(file),mode) as fd:
+			writer = csv.writer(fd)
+			writer.writerow(dat)
 
 ###############
 # Main Program
@@ -476,16 +490,4 @@ if __name__ == '__main__':
 	print ("accuracy =" + str(accuracy))
 	print (cm)
 	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
-	dat = []
-	dat.append(datetime.now())
-	dat.append(str(PREFIX))
-	dat.append(str(IDENTIFIER))
-	dat.append(str(conf.phowOpts.Sizes))
-	dat.append(str(SAMPLE_SEED))
-	dat.append(str(accuracy))
-	mode = 'w'
-	if isfile('/Volumes/users/l/lbarnett/inbox/phow_results.csv'):
-		mode = 'a'
-		with open('/Volumes/users/l/lbarnett/inbox/phow_results.csv',mode) as fd:
-			writer = csv.writer(fd)
-			writer.writerow(dat)
+	saveCSV("/Volumes/users/l/lbarnett/inbox/phow_results.csv", accuracy)
