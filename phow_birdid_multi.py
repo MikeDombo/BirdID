@@ -4,7 +4,7 @@
 Python rewrite of http: //www.vlfeat.org/applications/caltech-101-code.html
 """
 
-from os.path import exists, isdir, basename, join, splitext
+from os.path import exists, isdir, basename, join, splitext, isfile
 from os import makedirs
 from glob import glob
 from random import sample, seed
@@ -24,7 +24,7 @@ from cPickle import dump, load
 import argparse
 import multiprocessing
 import sys
-
+import csv
 
 
 IDENTIFIER = '2014-04-17-UR'
@@ -62,7 +62,7 @@ class Configuration(object):
 		self.numSpatialY = [2, 4]
 		self.quantizer = 'vq'  # kdtree from the .m version not implemented
 		self.svm = SVMParameters(C=10)
-		self.phowOpts = PHOWOptions(Verbose=False, Sizes=[4, 5, 6, 7, 8, 9], Step=3)
+		self.phowOpts = PHOWOptions(Verbose=False, Sizes=[2, 4, 6, 8], Step=3)
 		self.clobber = False
 		self.tinyProblem = TINYPROBLEM
 		self.prefix = prefix
@@ -169,7 +169,8 @@ def getImageDescriptor(model, im, idx):
 
 	hist = hstack(hist)
 	hist = array(hist, 'float32') / sum(hist)
-	sys.stdout.write ("\r"+str(datetime.now())+" Histograms Calculated: "+str(((idx+1)/423.0)*100.0)[:5]+"%")
+	numTot = float(conf.numClasses*(conf.numTrain+conf.numTest))
+	sys.stdout.write ("\r"+str(datetime.now())+" Histograms Calculated: "+str(((idx+1)/numTot)*100.0)[:5]+"%")
 	sys.stdout.flush()
 	return [idx, hist]
 
@@ -285,6 +286,7 @@ def computeHistograms(all_images, model, conf):
 	for hist in hists:
 		hist.pop(0)
 	hists = vstack(hists)
+	print ""
 	return hists
 
 
@@ -474,5 +476,16 @@ if __name__ == '__main__':
 	print ("accuracy =" + str(accuracy))
 	print (cm)
 	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
+	dat = []
+	dat.append(datetime.now())
+	dat.append(str(conf.phowOpts.Sizes))
+	dat.append(str(SAMPLE_SEED))
+	dat.append(str(accuracy))
+	mode = 'w'
+	if isfile('document.csv'):
+		mode = 'a'
+	with open('document.csv',mode) as fd:
+		writer = csv.writer(fd)
+		writer.writerow(dat)
 	# Pop up a graph of the confusion matrix
 	#showconfusionmatrix(cm)
