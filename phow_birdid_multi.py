@@ -302,7 +302,6 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.numClasses))
 	with open(str(file), 'a') as fd:
 		csv.writer(fd).writerow(dat)
-	print "wrote csv to "+str(file)
 
 ###############
 # Main Program
