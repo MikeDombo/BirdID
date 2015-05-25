@@ -286,7 +286,7 @@ def computeHistograms(all_images, model, conf):
 	for hist in hists:
 		hist.pop(0)
 	hists = vstack(hists)
-	print ""
+	print "" #puts in a new line to separate histogram percentage
 	return hists
 
 def saveCSV(file, accuracy):
@@ -297,12 +297,12 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.phowOpts.Sizes))
 	dat.append(str(SAMPLE_SEED))
 	dat.append(str(accuracy))
-	mode = 'w'
-	if isfile(str(file)):
-		mode = 'a'
-		with open(str(file),mode) as fd:
-			writer = csv.writer(fd)
-			writer.writerow(dat)
+	dat.append(str(conf.numTrain))
+	dat.append(str(conf.numTest))
+	dat.append(str(conf.numClasses))
+	with open(str(file), 'a') as fd:
+		csv.writer(fd).writerow(dat)
+	print "wrote csv to "+str(file)
 
 ###############
 # Main Program
