@@ -478,13 +478,15 @@ if __name__ == '__main__':
 	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
 	dat = []
 	dat.append(datetime.now())
+	dat.append(str(PREFIX))
+	dat.append(str(IDENTIFIER))
 	dat.append(str(conf.phowOpts.Sizes))
 	dat.append(str(SAMPLE_SEED))
 	dat.append(str(accuracy))
 	mode = 'w'
-	if isfile('document.csv'):
+	if isfile('/Volumes/users/l/lbarnett/phow_results.csv'):
 		mode = 'a'
-	with open('document.csv',mode) as fd:
+	with open('/Volumes/users/l/lbarnett/phow_results.csv',mode) as fd:
 		writer = csv.writer(fd)
 		writer.writerow(dat)
 	# Pop up a graph of the confusion matrix
