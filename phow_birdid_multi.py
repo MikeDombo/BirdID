@@ -484,10 +484,8 @@ if __name__ == '__main__':
 	dat.append(str(SAMPLE_SEED))
 	dat.append(str(accuracy))
 	mode = 'w'
-	if isfile('/Volumes/users/l/lbarnett/phow_results.csv'):
+	if isfile('/Volumes/users/l/lbarnett/inbox/phow_results.csv'):
 		mode = 'a'
-	with open('/Volumes/users/l/lbarnett/phow_results.csv',mode) as fd:
-		writer = csv.writer(fd)
-		writer.writerow(dat)
-	# Pop up a graph of the confusion matrix
-	#showconfusionmatrix(cm)
+		with open('/Volumes/users/l/lbarnett/inbox/phow_results.csv',mode) as fd:
+			writer = csv.writer(fd)
+			writer.writerow(dat)
