@@ -24,7 +24,7 @@ from cPickle import dump, load
 import argparse
 import multiprocessing
 import sys
-import csv
+from openpyxl import *
 
 
 IDENTIFIER = '2014-04-17-UR'
@@ -300,8 +300,15 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.numTrain))
 	dat.append(str(conf.numTest))
 	dat.append(str(conf.numClasses))
-	with open(str(file), 'a') as fd:
-		csv.writer(fd).writerow(dat)
+	wb = load_workbook(str(file), guess_types=True)
+	ws = wb.active
+	numRow = len(ws.rows)+1
+	ii = 0
+	for d in dat:
+		col = str(chr(ii+65))
+		ws[col+str(numRow)]=d
+		ii = ii+1
+	wb.save(str(file))
 
 ###############
 # Main Program
@@ -489,4 +496,4 @@ if __name__ == '__main__':
 	print ("accuracy =" + str(accuracy))
 	print (cm)
 	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
-	saveCSV("/Volumes/users/l/lbarnett/inbox/phow_results.csv", accuracy)
+	saveCSV("/Volumes/users/l/lbarnett/inbox/phow_results.xlsx", accuracy)
