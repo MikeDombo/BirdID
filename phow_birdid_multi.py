@@ -60,14 +60,13 @@ class Configuration(object):
 		self.quantizer = 'vq'  # kdtree from the .m version not implemented
 		self.svm = SVMParameters(C=10)
 		self.phowOpts = PHOWOptions(Verbose=False, Sizes=[2, 4, 6, 8], Step=3)
-		self.clobber = False
 		self.tinyProblem = TINYPROBLEM
 		self.prefix = prefix
-		self.randSeed = 11
 		self.verbose = True
 		self.extensions = [".jpg", ".jpeg", ".bmp", ".png", ".pgm", ".tif", ".tiff"]
 		self.images_for_histogram = 30
 		self.numbers_of_features_for_histogram = 100000
+		self.imSize = 480
 		
 		self.vocabPath = join(self.dataDir, identifier + '-vocab.py.mat')
 		self.histPath = join(self.dataDir, identifier + '-hists.py.mat')
@@ -84,7 +83,6 @@ class Configuration(object):
 			self.numWords = 100
 			self.numTrain = 2
 			self.numTest = 2
-			self.imSize = 480
 			self.phowOpts = PHOWOptions(Verbose=2, Sizes=7, Step=5)
 
 		# tests and conversions
@@ -110,8 +108,8 @@ def ensure_type_array(data):
 
 def standardizeImage(im): #Scales image down to 640x480
 	im = array(im, 'float32') 
-	if im.shape[0] > self.imSize:
-		resize_factor = float(self.imSize) / im.shape[0]	 # don't remove trailing .0 to avoid integer devision
+	if im.shape[0] > conf.imSize:
+		resize_factor = float(conf.imSize) / im.shape[0]	 # don't remove trailing .0 to avoid integer devision
 		im = imresize(im, resize_factor)
 	if amax(im) > 1.1:
 		im = im / 255.0
@@ -303,7 +301,7 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.numTest))
 	dat.append(str(conf.numClasses))
 	dat.append(str(conf.calDir))
-	dat.append(str(self.imSize))
+	dat.append(str(conf.imSize))
 
 	if isfile("phow_results.xlsx"): #create backup spreadsheet in case network is unmounted
 		wb = load_workbook("phow_results.xlsx", guess_types=True)
