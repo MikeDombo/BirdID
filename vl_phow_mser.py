@@ -19,8 +19,7 @@ def vl_phow_mser(im,
             floatdescriptors=False,
             magnif=6,
             windowsize=1.5,
-            contrastthreshold=0.005
-            data,
+            contrastthreshold=0.005,
             delta = 5,
             max_area = 75,
             min_area = .0002,
@@ -32,7 +31,7 @@ def vl_phow_mser(im,
 
     opts = Options(verbose, fast, sizes, step, color,
                    floatdescriptors, magnif, windowsize,
-                   contrastthreshold, data, delta, max_area,
+                   contrastthreshold, delta, max_area,
                    min_area, max_variation, min_diversity)
 
     mserOpts = MSEROptions(opts)
@@ -120,7 +119,7 @@ def vl_phow_mser(im,
         # note that for color descriptors the V component is
         # thresholded
         if (opts.color == 'gray') | (opts.color == 'opponent'):
-            contrast = frames[0][2, :]
+            contrast = frames[0][2:]
         elif opts.color == 'rgb':
             contrast = mean([frames[0][2, :], frames[1][2, :], frames[2][2, :]], 0)
         else:
@@ -142,7 +141,7 @@ def vl_phow_mser(im,
 class Options(object):
     def __init__(self, verbose, fast, sizes, step, color,
                  floatdescriptors, magnif, windowsize,
-                 contrastthreshold, data, delta, max_area,
+                 contrastthreshold, delta, max_area,
                  min_area, max_variation, min_diversity):
         self.verbose = verbose
         self.fast = fast
@@ -156,10 +155,9 @@ class Options(object):
         self.windowsize = windowsize
         self.contrastthreshold = contrastthreshold
 
-        **********************************************
-        ***           Parameters of MSER           ***
-        **********************************************
-        self.data = data;
+		#**********************************************
+        #***           Parameters of MSER           ***
+        #**********************************************
         self.delta = delta;
         self.max_area = max_area;
         self.min_area = min_area;
@@ -176,25 +174,8 @@ class MSEROptions(object):
       self.fast = opts.fast
       self.floatdescriptors = opts.floatdescriptors
       self.step = opts.step
-      self.data = opts.data;
       self.delta = opts.delta;
       self.max_area = opts.max_area;
       self.min_area = opts.min_area;
       self.max_variation = opts.max_variation;
       self.min_diversity = opts.min_diversity;
-
-
-
-class DSiftOptions(object):
-    def __init__(self, opts):
-        self.norm = True
-        self.windowsize = opts.windowsize
-        self.verbose = opts.verbose
-        self.fast = opts.fast
-        self.floatdescriptors = opts.floatdescriptors
-        self.step = opts.step
-
-if __name__ == "__main__":
-    from scipy.misc import imread
-    im = imread('image_0001.jpg')
-    frames, descrs = vl_phow(array(im, 'float32') / 255.0)

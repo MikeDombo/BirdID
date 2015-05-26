@@ -11,7 +11,7 @@ from scipy import ones, mod, arange, array, where, ndarray, hstack, linspace, hi
 from scipy.misc import imread, imresize
 from scipy.cluster.vq import vq
 import numpy
-from vl_phow import vl_phow
+from vl_phow_mser import vl_phow_mser
 from vlfeat import vl_ikmeans
 from scipy.io import loadmat, savemat
 from sklearn import svm
@@ -57,7 +57,7 @@ class Configuration(object):
         self.numTest = 15
 
         self.imagesperclass = self.numTrain + self.numTest
-        self.numClasses = 7
+        self.numClasses = 9
         self.numWords = 600
         self.numSpatialX = [2, 4]
         self.numSpatialY = [2, 4]
@@ -122,9 +122,9 @@ def standardizeImage(im):
     return im
 
 
-def getPhowFeatures(imagedata, phowOpts):
+def getPhowFeatures(imagedata, phowOpts, list):
     im = standardizeImage(imagedata)
-    frames, descrs = vl_phow(im,
+    frames, descrs = vl_phow_mser(im,
                              verbose=phowOpts.Verbose,
                              sizes=phowOpts.Sizes,
                              step=phowOpts.Step)
@@ -263,7 +263,7 @@ def trainVocab(selTrain, all_images, conf):
             im = imread(all_images[i])
             # Debugging
             #print all_images[i], 'shape', im.shape
-            descrs.append(getPhowFeatures(im, conf.phowOpts)[1])
+            descrs.append(getPhowFeatures(im, conf.phowOpts, all_images)[1])
             # the '[1]' is there because we only want the descriptors and not the frames
 
     descrs = hstack(descrs)
