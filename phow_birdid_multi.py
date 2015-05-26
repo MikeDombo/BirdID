@@ -80,11 +80,11 @@ class Configuration(object):
 			self.numClasses = 5
 			self.images_for_histogram = 10
 			self.numbers_of_features_for_histogram = 1000
-			self.numTrain
 			self.numSpatialX = 2
 			self.numWords = 100
 			self.numTrain = 2
 			self.numTest = 2
+			self.imSize = 480
 			self.phowOpts = PHOWOptions(Verbose=2, Sizes=7, Step=5)
 
 		# tests and conversions
@@ -110,8 +110,8 @@ def ensure_type_array(data):
 
 def standardizeImage(im): #Scales image down to 640x480
 	im = array(im, 'float32') 
-	if im.shape[0] > 480:
-		resize_factor = 480.0 / im.shape[0]	 # don't remove trailing .0 to avoid integer devision
+	if im.shape[0] > self.imSize:
+		resize_factor = float(self.imSize) / im.shape[0]	 # don't remove trailing .0 to avoid integer devision
 		im = imresize(im, resize_factor)
 	if amax(im) > 1.1:
 		im = im / 255.0
@@ -303,17 +303,18 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.numTest))
 	dat.append(str(conf.numClasses))
 	dat.append(str(conf.calDir))
+	dat.append(str(self.imSize))
 
 	if isfile("phow_results.xlsx"): #create backup spreadsheet in case network is unmounted
 		wb = load_workbook("phow_results.xlsx", guess_types=True)
 		ws = wb.active
 	else:
-		wb = Workbook()
+		wb = Workbook(guess_types=True)
 		ws = wb.active
-		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path'])
+		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
-
+	"""
 	if isfile(str(file)):
 		wb = load_workbook(str(file), guess_types=True)
 		ws = wb.active
@@ -321,6 +322,7 @@ def saveCSV(file, accuracy):
 		wb.save(str(file))
 	else:
 		print "Could not save excel spreadsheet to network!"
+		"""
 
 ################
 # Main Program #
@@ -364,6 +366,10 @@ if __name__ == '__main__':
 						help="Number of CPU cores to use in multiprocessing",
 						type=int)
 
+	parser.add_argument("--im_size",
+					help="Number of CPU cores to use in multiprocessing",
+					type=int)
+	
 	args = parser.parse_args()
 
 	if args.sample_seed_arg:
@@ -407,7 +413,11 @@ if __name__ == '__main__':
 	if args.num_core:
 		conf.numCore = args.num_core
 		if VERBOSE: print ("numCore = " + str(conf.numCore))
-	
+
+	if args.im_size:
+		conf.imSize = args.im_size
+		if VERBOSE: print ("imSize = " + str(conf.imSize))
+
 	if VERBOSE: print (str(datetime.now()) + ' finished conf')
 
 	classes = get_classes(conf.calDir, conf.numClasses) #get classes from data folder
