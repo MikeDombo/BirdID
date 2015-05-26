@@ -33,8 +33,6 @@ PREFIX = 'baseline'
 SAVETODISC = False
 FEATUREMAP = True
 OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
-#SAMPLE_SEED = 42
-#SAMPLE_SEED = 111
 SAMPLE_SEED = 1963543398
 TINYPROBLEM = False
 VERBOSE = True	# set to 'SVM' if you want to get the svm output
@@ -48,7 +46,6 @@ class Configuration(object):
 		if not exists(self.dataDir):
 			makedirs(self.dataDir)
 			print ("folder " + self.dataDir + " created")
-		self.autoDownloadData = False
 
 		# Sum of these two numbers should be <= # of images in smallest
 		# class
@@ -100,7 +97,7 @@ class Configuration(object):
 			raise ValueError(message)
 
 	def setClasses(self, classes):
-		self.classes = classes
+		self.classes = classes #Save class names for later use by birdid_classifier
 
 def ensure_type_array(data):
 	if (type(data) is not ndarray):
@@ -111,7 +108,7 @@ def ensure_type_array(data):
 	return data
 
 
-def standardizeImage(im):
+def standardizeImage(im): #Scales image down to 640x480
 	im = array(im, 'float32') 
 	if im.shape[0] > 480:
 		resize_factor = 480.0 / im.shape[0]	 # don't remove trailing .0 to avoid integer devision
@@ -123,31 +120,32 @@ def standardizeImage(im):
 	return im
 
 
-def getPhowFeatures(imagedata, phowOpts):
-	im = standardizeImage(imagedata)
+def getPhowFeatures(imagedata, phowOpts): #extracts features from image
+	im = standardizeImage(imagedata) #scale image to 640x480
 	frames, descrs = vl_phow(im,
 							 verbose=phowOpts.Verbose,
 							 sizes=phowOpts.Sizes,
 							 step=phowOpts.Step)
 	return frames, descrs
 
-def getPhowFeaturesMulti(imagedata, phowOpts, idx):
+def getPhowFeaturesMulti(imagedata, phowOpts, idx): #used in multiprocessing for training vocab
 	return [idx, getPhowFeatures(imagedata, phowOpts)[1]]
 
 
-def getImageDescriptor(model, im, idx):
-	im = standardizeImage(im)
+def getImageDescriptor(model, im, idx): #gets histograms
+	im = standardizeImage(im) #scale image to 640x480
 	height, width = im.shape[:2]
 	numWords = model.vocab.shape[1]
-	frames, descrs = getPhowFeatures(im, conf.phowOpts)
+	frames, descrs = getPhowFeatures(im, conf.phowOpts) #extract features
 	# quantize appearance
 	if model.quantizer == 'vq':
-		binsa, _ = vq(descrs.T, model.vocab.T)
+		binsa, _ = vq(descrs.T, model.vocab.T) #slowest function - does kmeans clustering
 	elif model.quantizer == 'kdtree':
 		raise ValueError('quantizer kdtree not implemented')
 	else:
 		raise ValueError('quantizer {0} not known or understood'.format(model.quantizer))
 	hist = []
+	#generate the histogram bins
 	for n_spatial_bins_x, n_spatial_bins_y in zip(model.numSpatialX, model.numSpatialX):
 		binsx, distsx = vq(frames[0, :], linspace(0, width, n_spatial_bins_x))
 		binsy, distsy = vq(frames[1, :], linspace(0, height, n_spatial_bins_y))
@@ -164,13 +162,13 @@ def getImageDescriptor(model, im, idx):
 		# update using this: http://stackoverflow.com/questions/15230179/how-to-get-the-linear-index-for-a-numpy-array-sub2ind
 		temp = temp.reshape([n_spatial_bins_x, n_spatial_bins_y, numWords])
 		bin_comb = temp[binsx, binsy, binsa]
-		hist_temp, _ = histogram(bin_comb, bins=range(number_of_bins+1), density=True)
+		hist_temp, _ = histogram(bin_comb, bins=range(number_of_bins+1), density=True) #generate histogram
 		hist.append(hist_temp)
 
 	hist = hstack(hist)
 	hist = array(hist, 'float32') / sum(hist)
 	numTot = float(conf.numClasses*(conf.numTrain+conf.numTest))
-	sys.stdout.write ("\r"+str(datetime.now())+" Histograms Calculated: "+str(((idx+1)/numTot)*100.0)[:5]+"%")
+	sys.stdout.write ("\r"+str(datetime.now())+" Histograms Calculated: "+str(((idx+1)/numTot)*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
 	return [idx, hist]
 
@@ -197,7 +195,7 @@ class PHOWOptions(object):
 		self.Step = Step
 
 
-def get_classes(datasetpath, numClasses):
+def get_classes(datasetpath, numClasses): #find classes in the data folder
 	classes_paths = [files
 					 for files in glob(datasetpath + "/*")
 					 if isdir(files)]
@@ -211,7 +209,7 @@ def get_classes(datasetpath, numClasses):
 	return classes
 
 
-def get_imgfiles(path, extensions):
+def get_imgfiles(path, extensions): #get images from 1 class folder
 	all_files = []
 	all_files.extend([join(path, basename(fname))
 					 for fname in glob(path + "/*")
@@ -226,7 +224,7 @@ def showconfusionmatrix(cm):
 	pl.show()
 
 
-def get_all_images(classes, conf):
+def get_all_images(classes, conf): #gets all images from all classes
 	all_images = []
 	all_images_class_labels = []
 	for i, imageclass in enumerate(classes):
@@ -244,7 +242,7 @@ def get_all_images(classes, conf):
 	return all_images, all_images_class_labels
 
 
-def create_split(all_images, conf):
+def create_split(all_images, conf): #split files between training and testing
 	temp = mod(arange(len(all_images)), conf.imagesperclass) < conf.numTrain
 	selTrain = where(temp == True)[0]
 	selTest = where(temp == False)[0]
@@ -254,6 +252,7 @@ def create_split(all_images, conf):
 def trainVocab(selTrain, all_images, conf):
 	selTrainFeats = sample(selTrain, conf.images_for_histogram)
 	descrs = []
+	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
 	results = [pool.apply_async(getPhowFeaturesMulti, args=(imread(all_images[i]), conf.phowOpts, i)) for i in selTrainFeats]
 	descrs = [p.get() for p in results]
@@ -264,6 +263,7 @@ def trainVocab(selTrain, all_images, conf):
 	for descr in descrs:
 		depict.append(descr[0])
 	descrs = depict
+	#end multiprocessing block
 	descrs = hstack(descrs)
 	n_features = descrs.shape[1]
 	sample_indices = sample(arange(n_features), conf.numbers_of_features_for_histogram)
@@ -279,12 +279,14 @@ def trainVocab(selTrain, all_images, conf):
 
 def computeHistograms(all_images, model, conf):
 	hists = []
+	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
 	results = [pool.apply_async(getImageDescriptor, args=(model, imread(imagefname), ii)) for ii, imagefname in enumerate(all_images)]
 	hists = [p.get() for p in results]
 	sorted(hists)
 	for hist in hists:
 		hist.pop(0)
+	#end multiprocessing block
 	hists = vstack(hists)
 	print "" #puts in a new line to separate histogram percentage
 	return hists
@@ -300,24 +302,33 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.numTrain))
 	dat.append(str(conf.numTest))
 	dat.append(str(conf.numClasses))
-	wb = load_workbook(str(file), guess_types=True)
-	ws = wb.active
-	numRow = len(ws.rows)+1
-	ii = 0
-	for d in dat:
-		col = str(chr(ii+65))
-		ws[col+str(numRow)]=d
-		ii = ii+1
-	wb.save(str(file))
 
-###############
-# Main Program
-###############
+	if isfile("phow_results.xlsx"): #create backup spreadsheet in case network is unmounted
+		wb = load_workbook("phow_results.xlsx", guess_types=True)
+		ws = wb.active
+	else:
+		wb = Workbook()
+		ws = wb.active
+		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes'])
+	ws.append(dat)
+	wb.save("phow_results.xlsx")
+
+	if isfile(str(file)):
+		wb = load_workbook(str(file), guess_types=True)
+		ws = wb.active
+		ws.append(dat)
+		wb.save(str(file))
+	else:
+		print "Could not save excel spreadsheet to network!"
+
+################
+# Main Program #
+################
 
 if __name__ == '__main__':
-	################################
-	# Handle command-line arguments
-	################################
+	#################################
+	# Handle command-line arguments #
+	#################################
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--sample_seed_arg", 
 		help="Seed for choosing training sample", type=int)
@@ -398,21 +409,21 @@ if __name__ == '__main__':
 	
 	if VERBOSE: print (str(datetime.now()) + ' finished conf')
 
-	classes = get_classes(conf.calDir, conf.numClasses)
+	classes = get_classes(conf.calDir, conf.numClasses) #get classes from data folder
 	print ("Class names" , classes)
-	conf.setClasses(classes)
+	conf.setClasses(classes) #save class names for use by birdid_classifier
 	model = Model(classes, conf)
 
 	# all_images_class_labels is an array containing the integer corresponding
 	# to the class the image belongs to based on the directory structure
 	all_images, all_images_class_labels = get_all_images(classes, conf)
 	selTrain, selTest = create_split(all_images, conf)
-	#print ("Classes " , all_images_class_labels
 
 	if VERBOSE: print (str(datetime.now()) + ' found classes and created split ')
-	##################
-	# Train vocabulary
-	##################
+
+	####################
+	# Train vocabulary #
+	####################
 	if VERBOSE: print (str(datetime.now()) + ' start training vocab')
 	if (not exists(conf.vocabPath)) | OVERWRITE:
 		vocab = trainVocab(selTrain, all_images, conf)
@@ -425,9 +436,9 @@ if __name__ == '__main__':
 	model.vocab = vocab
 
 
-	############################
-	# Compute spatial histograms
-	############################
+	##############################
+	# Compute spatial histograms #
+	##############################
 	if VERBOSE: print (str(datetime.now()) + ' start computing hists')
 	if (not exists(conf.histPath)) | OVERWRITE:
 		hists = computeHistograms(all_images, model, conf)
@@ -437,9 +448,9 @@ if __name__ == '__main__':
 		hists = loadmat(conf.histPath)['hists']
 
 
-	#####################
-	# Compute feature map
-	#####################
+	#######################
+	# Compute feature map #
+	#######################
 	if VERBOSE: print (str(datetime.now()) + ' start computing feature map')
 	transformer = AdditiveChi2Sampler()
 	histst = transformer.fit_transform(hists)
@@ -447,9 +458,9 @@ if __name__ == '__main__':
 	test_data = histst[selTest]
 
 	
-	###########
-	# Train SVM
-	###########
+	#############
+	# Train SVM #
+	#############
 	if (not exists(conf.modelPath)) | OVERWRITE:
 		if VERBOSE: print (str(datetime.now()) + ' training liblinear svm')
 		if VERBOSE == 'SVM':
@@ -466,9 +477,9 @@ if __name__ == '__main__':
 		with open(conf.modelPath, 'rb') as fp:
 			clf = load(fp)
 
-	##########
-	# Test SVM
-	##########	 
+	############
+	# Test SVM #
+	############
 	if (not exists(conf.resultPath)) | OVERWRITE:
 		if VERBOSE: print (str(datetime.now()) + ' testing svm')
 		predicted_classes = clf.predict(test_data)
@@ -490,10 +501,10 @@ if __name__ == '__main__':
 			accuracy = load(fp)
 	
 
-	################
-	# Output Results
-	################		 
+	##################
+	# Output Results #
+	##################
 	print ("accuracy =" + str(accuracy))
 	print (cm)
 	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
-	saveCSV("/Volumes/users/l/lbarnett/inbox/phow_results.xlsx", accuracy)
+	saveCSV("/Volumes/users/l/lbarnett/inbox/phow_results.xlsx", accuracy) #save data as excel spreadsheet
