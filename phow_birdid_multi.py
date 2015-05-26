@@ -5,7 +5,7 @@ Python rewrite of http: //www.vlfeat.org/applications/caltech-101-code.html
 """
 
 from os.path import exists, isdir, basename, join, splitext, isfile
-from os import makedirs
+from os import makedirs, remove
 from glob import glob
 from random import sample, seed
 from scipy import ones, mod, arange, array, where, ndarray, hstack, linspace, histogram, vstack, amax, amin
@@ -25,6 +25,7 @@ import argparse
 import multiprocessing
 import sys
 from openpyxl import *
+import ftplib
 
 
 IDENTIFIER = '2014-04-17-UR'
@@ -312,15 +313,20 @@ def saveCSV(file, accuracy):
 		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
-	"""
-	if isfile(str(file)):
-		wb = load_workbook(str(file), guess_types=True)
-		ws = wb.active
-		ws.append(dat)
-		wb.save(str(file))
-	else:
-		print "Could not save excel spreadsheet to network!"
-		"""
+
+	ftp = ftplib.FTP('dombrowskivpn.mynetgear.com', "lbarnett-students", 'lbarnett-studentaccess')
+	ftp.set_pasv(False)
+	with open("temp.xlsx", 'wb') as f:
+		def callback(data):
+			f.write(data)
+		ftp.retrbinary('RETR '+str(file), callback)
+	wb = load_workbook("temp.xlsx", guess_types=True)
+	ws = wb.active
+	ws.append(dat)
+	wb.save("temp.xlsx")
+	ftp.storbinary('STOR '+str(file), open('temp.xlsx','r'))
+	ftp.close()
+	remove('temp.xlsx')
 
 ################
 # Main Program #
@@ -516,4 +522,4 @@ if __name__ == '__main__':
 	print ("accuracy =" + str(accuracy))
 	print (cm)
 	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
-	saveCSV("/Volumes/users/l/lbarnett/inbox/phow_results.xlsx", accuracy) #save data as excel spreadsheet
+	saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet

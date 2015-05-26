@@ -31,10 +31,10 @@ arg27=(4 6)
 arg28=(6 8)
 
 #images=("prepro-tests/b-w-blue/" "prepro-tests/b-w-green/" "prepro-tests/b-w-red/" "prepro-tests/clarity/")
-for ((i=1; i<29; i++))
+for ((i=20; i<29; i++))
 do
 var=arg$i[@]
 
 echo 'running test '${!var}
-python phow_birdid_multi.py --image_dir "../training_2014_06_17" --dsift_size ${!var}
+python phow_birdid_multi.py --image_dir "../training_2014_06_17" --dsift_size ${!var} --prefix "Baseline"
 done
