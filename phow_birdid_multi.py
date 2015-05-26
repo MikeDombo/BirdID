@@ -302,6 +302,7 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.numTrain))
 	dat.append(str(conf.numTest))
 	dat.append(str(conf.numClasses))
+	dat.append(str(conf.calDir))
 
 	if isfile("phow_results.xlsx"): #create backup spreadsheet in case network is unmounted
 		wb = load_workbook("phow_results.xlsx", guess_types=True)
@@ -309,7 +310,7 @@ def saveCSV(file, accuracy):
 	else:
 		wb = Workbook()
 		ws = wb.active
-		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes'])
+		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
 
