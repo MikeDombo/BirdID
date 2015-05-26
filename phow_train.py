@@ -11,7 +11,6 @@ from datetime import datetime
 from os.path import exists
 from scipy.io import loadmat, savemat
 from sklearn.kernel_approximation import AdditiveChi2Sampler
-from sklearn.metrics import confusion_matrix, accuracy_score
 from sklearn import svm
 from cPickle import dump, load
 
@@ -24,24 +23,18 @@ PREFIX = 'base'
 # if this flag is True, all existing files will be ignored and overwritten
 OVERWRITE = False  # DON'T load mat files generated with a different seed!!!
 
-#SAMPLE_SEED = 42
-#SAMPLE_SEED = 111
 SAMPLE_SEED = 83150245
 
 
-###############
-# Main Program
-###############
+################
+# Main Program #
+################
 
 if __name__ == '__main__':
-    ################################
-    # Handle command-line arguments
-    ################################
+    #################################
+    # Handle command-line arguments #
+    #################################
 	parser = argparse.ArgumentParser()
-
-    # Not needed for this one?
-	#parser.add_argument("--sample_seed_arg",
-    #	 help="Seed for choosing training sample", type=int)
 
 	parser.add_argument("--identifier",
 	help="Identifier for this data set. Should not contain the character '-'")
@@ -77,10 +70,6 @@ if __name__ == '__main__':
 
 	args = parser.parse_args()
 
-	#if args.sample_seed_arg:
-	#	SAMPLE_SEED = args.sample_seed_arg
-	#	if VERBOSE: print "SAMPLE_SEED = " + str(SAMPLE_SEED)
-	
 	birdid_utils.seed(SAMPLE_SEED)
 
 	if args.identifier:
@@ -131,6 +120,7 @@ if __name__ == '__main__':
 
 	classes = birdid_utils.get_classes(conf.inputDir, conf.numClasses)
 	print "Class names" , classes
+	conf.classes = classes #save classes for later use by birdid_classifier
 
 	model = birdid_utils.Model(classes, conf)
 
@@ -143,10 +133,11 @@ if __name__ == '__main__':
     # this is just to fool the code from phow_validate - we haven't split the
     # images up for the purposes of this script.
 	selTrain = range(len(all_images))
+	conf.numTrain = len(all_images)/conf.numClasses
 
-    ##################
-    # Train vocabulary
-    ##################
+    ####################
+    # Train vocabulary #
+    ####################
 	if VERBOSE: print str(datetime.now()) + ' start training vocab'
 	if (not exists(conf.vocabPath)) | OVERWRITE:
 		vocab = birdid_utils.trainVocab(selTrain, all_images, conf)
@@ -159,9 +150,9 @@ if __name__ == '__main__':
 	model.vocab = vocab
 
 
-    ############################
-    # Compute spatial histograms
-    ############################
+    ##############################
+    # Compute spatial histograms #
+    ##############################
 	if VERBOSE: print str(datetime.now()) + ' start computing hists'
 	if (not exists(conf.histPath)) | OVERWRITE:
 		hists = birdid_utils.computeHistogramsMulti(all_images, model, conf) #changed from computeHistorgams to multiprocessing version
@@ -171,18 +162,18 @@ if __name__ == '__main__':
 		hists = loadmat(conf.histPath)['hists']
 
 
-    #####################
-    # Compute feature map
-    #####################
+    #######################
+    # Compute feature map #
+    #######################
 	if VERBOSE: print str(datetime.now()) + ' start computing feature map'
 	transformer = AdditiveChi2Sampler()
 	histst = transformer.fit_transform(hists)
 	train_data = histst[selTrain]
 
     
-    ###########
-    # Train SVM
-    ###########
+    #############
+    # Train SVM #
+    #############
 	if (not exists(conf.modelPath)) | OVERWRITE:
 		if VERBOSE: print str(datetime.now()) + ' training liblinear svm'
 		if VERBOSE == 'SVM':
