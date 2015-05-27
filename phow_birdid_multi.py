@@ -31,7 +31,6 @@ import ftplib
 IDENTIFIER = '2014-04-17-UR'
 PREFIX = 'baseline'
 
-SAVETODISC = False
 FEATUREMAP = True
 OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
 SAMPLE_SEED = 1963543398
@@ -417,7 +416,7 @@ if __name__ == '__main__':
 
 	if args.dsift_size:
 		conf.phowOpts.Sizes = args.dsift_size
-		if VERBOSE: print ("phowOpts.Sizes = ", conf.phowOpts.Sizes)
+		if VERBOSE: print ("phowOpts.Sizes = " + str(conf.phowOpts.Sizes))
 
 	if args.num_core:
 		conf.numCore = args.num_core
