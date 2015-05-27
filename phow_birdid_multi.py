@@ -500,7 +500,7 @@ if __name__ == '__main__':
 		predicted_classes = clf.predict(test_data)
 		true_classes = all_images_class_labels[selTest]
 		accuracy = accuracy_score(true_classes, predicted_classes)
-		cm = confusion_matrix(predicted_classes, true_classes)
+		cm = confusion_matrix(true_classes, predicted_classes)
 		with open(conf.resultPath, 'wb') as fp:
 			dump(conf, fp)
 			dump(cm, fp)
@@ -522,4 +522,5 @@ if __name__ == '__main__':
 	print ("accuracy =" + str(accuracy))
 	print (cm)
 	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
+	#showconfusionmatrix(cm)
 	saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
