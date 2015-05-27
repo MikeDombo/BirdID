@@ -428,7 +428,7 @@ if __name__ == '__main__':
 		if VERBOSE: print ("imSize = " + str(conf.imSize))
 
 	if args.num_words:
-		conf.imSize = args.num_words
+		conf.numWords = args.num_words
 		if VERBOSE: print ("numWords = " + str(conf.numWords))
 
 	if VERBOSE: print (str(datetime.now()) + ' finished conf')
