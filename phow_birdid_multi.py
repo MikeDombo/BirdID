@@ -138,7 +138,7 @@ def getImageDescriptor(model, im, idx): #gets histograms
 	frames, descrs = getPhowFeatures(im, conf.phowOpts) #extract features
 	# quantize appearance
 	if model.quantizer == 'vq':
-		binsa, _ = vq(descrs.T, model.vocab.T) #slowest function - does kmeans clustering
+		binsa, _ = vq(descrs.T, model.vocab.T) #slowest function - assigns words from vocab to features in descrs
 	elif model.quantizer == 'kdtree':
 		raise ValueError('quantizer kdtree not implemented')
 	else:
@@ -303,6 +303,7 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.numClasses))
 	dat.append(str(conf.calDir))
 	dat.append(str(conf.imSize))
+	dat.append(str(conf.numWords))
 
 	if isfile("phow_results.xlsx"): #create backup spreadsheet in case network is unmounted
 		wb = load_workbook("phow_results.xlsx", guess_types=True)
@@ -310,7 +311,7 @@ def saveCSV(file, accuracy):
 	else:
 		wb = Workbook(guess_types=True)
 		ws = wb.active
-		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height'])
+		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height', 'Number of K-Means Centroids'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
 
@@ -371,8 +372,12 @@ if __name__ == '__main__':
 						type=int)
 
 	parser.add_argument("--im_size",
-					help="Number of CPU cores to use in multiprocessing",
+					help="Image Height",
 					type=int)
+		
+	parser.add_argument("--num_words",
+						help="Number of centroids found for k-means clustering",
+						type=int)
 	
 	args = parser.parse_args()
 
@@ -421,6 +426,10 @@ if __name__ == '__main__':
 	if args.im_size:
 		conf.imSize = args.im_size
 		if VERBOSE: print ("imSize = " + str(conf.imSize))
+
+	if args.num_words:
+		conf.imSize = args.num_words
+		if VERBOSE: print ("numWords = " + str(conf.numWords))
 
 	if VERBOSE: print (str(datetime.now()) + ' finished conf')
 
