@@ -6,6 +6,12 @@ Script for content based image classification using the bag of visual words appr
 The script is a Python version of [phow_caltech101.m][1], a 'one file' example script using the [VLFeat library][6] to train and evaluate an image classifier 
 on the [Caltech-101 data set][4]. It has been adapted to use a set of images of birds rather than the Caltech 101 image library.
 
+phow_birdid.py - single-threaded version of script modified from phow_caltech101.py to use our dataset. Also exposed a number of potentially modifiable values as command-line arguments.
+
+phow_validate.py - phow_birdid.py modularized to use methods from birdid_utils.py for feature extraction, training and testing.
+
+phow_birdid_multi.py - phow_birdid.py with multi-threading capability added.
+
 Like the original Matlab version this Python script achieves the same (State-of-the-Art in 2008) average accuracy of around 65% as the original file:
 
 - PHOW features (dense multi-scale SIFT descriptors)
