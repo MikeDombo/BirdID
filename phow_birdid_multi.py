@@ -72,18 +72,6 @@ class Configuration(object):
 		self.histPath = join(self.dataDir, identifier + '-hists.py.mat')
 		self.modelPath = join(self.dataDir, self.prefix + '-' + identifier + '-model.py.mat')
 		self.resultPath = join(self.dataDir, self.prefix + '-' + identifier + '-result')
-		
-		if self.tinyProblem:
-			print ("Using 'tiny' protocol with different parameters than the .m code")
-			self.prefix = 'tiny'
-			self.numClasses = 5
-			self.images_for_histogram = 10
-			self.numbers_of_features_for_histogram = 1000
-			self.numSpatialX = 2
-			self.numWords = 100
-			self.numTrain = 2
-			self.numTest = 2
-			self.phowOpts = PHOWOptions(Verbose=2, Sizes=7, Step=5)
 
 		# tests and conversions
 		self.phowOpts.Sizes = ensure_type_array(self.phowOpts.Sizes)
@@ -225,25 +213,37 @@ def showconfusionmatrix(cm):
 def get_all_images(classes, conf): #gets all images from all classes
 	all_images = []
 	all_images_class_labels = []
+	images_per_class = [0]
 	for i, imageclass in enumerate(classes):
 		path = join(conf.calDir, imageclass)
 		extensions = conf.extensions
 		imgs = get_imgfiles(path, extensions)
 		if len(imgs) == 0:
 			raise ValueError('no images for class ' + str(imageclass))
-		imgs = sample(imgs, conf.imagesperclass)
 		all_images = all_images + imgs
-		class_labels = list(i * ones(conf.imagesperclass))
+		if len(images_per_class)>0:
+			sum = images_per_class[len(images_per_class)-1]
+		images_per_class.append(sum+len(imgs))
+		class_labels = list(i * ones(len(imgs)))
 		all_images_class_labels = all_images_class_labels + class_labels
 
 	all_images_class_labels = array(all_images_class_labels, 'int')
-	return all_images, all_images_class_labels
+	return all_images, all_images_class_labels, images_per_class
 
 
-def create_split(all_images, conf): #split files between training and testing
-	temp = mod(arange(len(all_images)), conf.imagesperclass) < conf.numTrain
-	selTrain = where(temp == True)[0]
-	selTest = where(temp == False)[0]
+def create_split(all_images, images_per_class, conf): #split files between training and testing
+	train_test = []
+	for i in range(0, conf.numClasses):
+		new_train = sample(all_images[images_per_class[i]:images_per_class[i+1]], conf.imagesperclass)
+		train_test = train_test+new_train
+	selTrain = []
+	for i in range(0, conf.numClasses):
+		selTrain = selTrain + sample(train_test[i*(conf.imagesperclass):(i+1)*(conf.imagesperclass)], conf.numTrain)
+	selTest = [x for x in train_test if x not in selTrain]
+	for i, ii in enumerate(selTrain):
+		selTrain[i] = all_images.index(ii)
+	for i, ii in enumerate(selTest):
+		selTest[i] = all_images.index(ii)
 	return selTrain, selTest
 
 
@@ -252,7 +252,7 @@ def trainVocab(selTrain, all_images, conf):
 	descrs = []
 	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
-	results = [pool.apply_async(getPhowFeaturesMulti, args=(imread(all_images[i]), conf.phowOpts, i)) for i in selTrainFeats]
+	results = [pool.apply_async(getPhowFeaturesMulti, args=(imread(all_images[ii]), conf.phowOpts, i)) for i, ii in enumerate(selTrainFeats)]
 	descrs = [p.get() for p in results]
 	sorted(descrs)
 	for descr in descrs:
@@ -275,11 +275,15 @@ def trainVocab(selTrain, all_images, conf):
 						  method='elkan')
 	return vocab
 
-def computeHistograms(all_images, model, conf):
+def computeHistograms(all_images, selTrain, selTest, model, conf):
+	images = numpy.append(selTrain,selTest).tolist()
+	imgs = []
+	for i in images:
+		imgs.append(all_images[i])
 	hists = []
 	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
-	results = [pool.apply_async(getImageDescriptor, args=(model, imread(imagefname), ii)) for ii, imagefname in enumerate(all_images)]
+	results = [pool.apply_async(getImageDescriptor, args=(model, imread(imagefname), ii)) for ii, imagefname in enumerate(imgs)]
 	hists = [p.get() for p in results]
 	sorted(hists)
 	for hist in hists:
@@ -448,8 +452,8 @@ if __name__ == '__main__':
 
 	# all_images_class_labels is an array containing the integer corresponding
 	# to the class the image belongs to based on the directory structure
-	all_images, all_images_class_labels = get_all_images(classes, conf)
-	selTrain, selTest = create_split(all_images, conf)
+	all_images, all_images_class_labels, images_per_class = get_all_images(classes, conf)
+	selTrain, selTest = create_split(all_images, images_per_class, conf)
 
 	if VERBOSE: print (str(datetime.now()) + ' found classes and created split ')
 
@@ -473,7 +477,7 @@ if __name__ == '__main__':
 	##############################
 	if VERBOSE: print (str(datetime.now()) + ' start computing hists')
 	if (not exists(conf.histPath)) | OVERWRITE:
-		hists = computeHistograms(all_images, model, conf)
+		hists = computeHistograms(all_images, selTrain, selTest, model, conf)
 		savemat(conf.histPath, {'hists': hists})
 	else:
 		if VERBOSE: print ("using old hists from " + conf.histPath)
@@ -486,8 +490,8 @@ if __name__ == '__main__':
 	if VERBOSE: print (str(datetime.now()) + ' start computing feature map')
 	transformer = AdditiveChi2Sampler()
 	histst = transformer.fit_transform(hists)
-	train_data = histst[selTrain]
-	test_data = histst[selTest]
+	train_data = histst[0:conf.numTrain*conf.numClasses]
+	test_data = histst[conf.numTrain*conf.numClasses:]
 
 	
 	#############
