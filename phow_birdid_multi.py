@@ -49,11 +49,11 @@ class Configuration(object):
 
 		# Sum of these two numbers should be <= # of images in smallest
 		# class
-		self.numTrain = 30
-		self.numTest = 15
+		self.numTrain = 70
+		self.numTest = 30
 		self.numCore = multiprocessing.cpu_count()
 		self.imagesperclass = self.numTrain + self.numTest
-		self.numClasses = 9
+		self.numClasses = 10
 		self.numWords = 600
 		self.numSpatialX = [2, 4]
 		self.numSpatialY = [2, 4]
@@ -438,6 +438,9 @@ if __name__ == '__main__':
 	if args.num_words:
 		conf.numWords = args.num_words
 		if VERBOSE: print ("numWords = " + str(conf.numWords))
+
+	if args.num_test or args.num_train:
+		conf.imagesperclass = conf.numTest+conf.numTrain
 
 	if args.num_features:
 		conf.numbers_of_features_for_histogram = args.num_features
