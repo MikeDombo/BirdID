@@ -33,7 +33,7 @@ PREFIX = 'baseline'
 
 FEATUREMAP = True
 OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
-SAMPLE_SEED = 1963543398
+SAMPLE_SEED = 64546542
 TINYPROBLEM = False
 VERBOSE = True	# set to 'SVM' if you want to get the svm output
 
@@ -211,6 +211,9 @@ def showconfusionmatrix(cm):
 
 
 def get_all_images(classes, conf): #gets all images from all classes
+	conf.numTrain = conf.numTrain/2
+	conf.numTest = conf.numTest/2
+	
 	all_images = []
 	all_images_class_labels = []
 	images_per_class = [0]
@@ -231,31 +234,40 @@ def get_all_images(classes, conf): #gets all images from all classes
 	return all_images, all_images_class_labels, images_per_class
 
 
-def create_split(all_images, images_per_class, conf, selTrain): #split files between training and testing
-	if selTrain != None:
-		train_test = []
-		for i in range(0, conf.numClasses):
-			new_train = sample(all_images[images_per_class[i]:images_per_class[i+1]], conf.imagesperclass)
-			train_test = train_test+new_train
-		selTest = [x for x in train_test if x not in selTrain]
-		for i, ii in enumerate(selTest):
-			selTest[i] = all_images.index(ii)
-		conf.numTrain = len(selTrain)/conf.numClasses
-		conf.numTest = len(selTest)/conf.numClasses
-		return selTrain, selTest
+def create_split(all_images, images_per_class, conf): #split files between training and testing
 	train_test = []
+	train2 = []
+	test2 = []
+	selTrain = []
+	selTest = []
+	
 	for i in range(0, conf.numClasses):
 		new_train = sample(all_images[images_per_class[i]:images_per_class[i+1]], conf.imagesperclass)
 		train_test = train_test+new_train
-	selTrain = []
+	firstHalf = train_test[::2]
+	secondHalf = train_test[1::2]
+
 	for i in range(0, conf.numClasses):
-		selTrain = selTrain + sample(train_test[i*(conf.imagesperclass):(i+1)*(conf.imagesperclass)], conf.numTrain)
-	selTest = [x for x in train_test if x not in selTrain]
+		selTrain = selTrain+sample(firstHalf[i*conf.imagesperclass/2:(i+1)*conf.imagesperclass/2], conf.numTrain)
+	selTest = [x for x in firstHalf if x not in selTrain]
+
+	for i in range(0, conf.numClasses):
+		train2 = train2+sample(secondHalf[i*conf.imagesperclass/2:(i+1)*conf.imagesperclass/2], conf.numTrain)
+	test2 = [x for x in secondHalf if x not in train2]
 	for i, ii in enumerate(selTrain):
 		selTrain[i] = all_images.index(ii)
 	for i, ii in enumerate(selTest):
 		selTest[i] = all_images.index(ii)
-	return selTrain, selTest
+	for i, ii in enumerate(train2):
+		train2[i] = all_images.index(ii)
+	for i, ii in enumerate(test2):
+		test2[i] = all_images.index(ii)
+	return selTrain, selTest, train2, test2
+
+def create_split2(train2, test2, wrong):
+	train2 = sample(train2, len(train2)-len(wrong))
+	train2 = train2+wrong
+	return train2, test2
 
 
 def trainVocab(selTrain, all_images, conf):
@@ -293,6 +305,7 @@ def computeHistograms(all_images, selTrain, selTest, model, conf):
 		imgs.append(all_images[i])
 	hists = []
 	#start multiprocessing block
+	'''
 	pool = multiprocessing.Pool(processes=conf.numCore)
 	results = [pool.apply_async(getImageDescriptor, args=(model, imread(imagefname), ii)) for ii, imagefname in enumerate(imgs)]
 	hists = [p.get() for p in results]
@@ -300,6 +313,9 @@ def computeHistograms(all_images, selTrain, selTest, model, conf):
 	for hist in hists:
 		hist.pop(0)
 	#end multiprocessing block
+	'''
+	for ii, imagefname in enumerate(imgs):
+		hists.append(getImageDescriptor(model, imread(imagefname), ii)[1])
 	hists = vstack(hists)
 	print "" #puts in a new line to separate histogram percentage
 	return hists
@@ -397,9 +413,6 @@ if __name__ == '__main__':
 	parser.add_argument("--num_features",
 						help="Number of histogram features",
 						type=int)
-
-	parser.add_argument("--selTrain",
-						help="specific training IDs")
 	
 	args = parser.parse_args()
 
@@ -460,15 +473,6 @@ if __name__ == '__main__':
 		conf.numbers_of_features_for_histogram = args.num_features
 		if VERBOSE: print ("num_features = " + str(conf.numbers_of_features_for_histogram))
 
-	if args.selTrain:
-		args.selTrain = args.selTrain[1:len(args.selTrain)-1]
-		selTrain = args.selTrain.split(",")
-		for i, ii in enumerate(selTrain):
-			selTrain[i] = int(ii)
-		if VERBOSE: print ("selTrain is set")
-	else:
-		selTrain = None
-
 	if VERBOSE: print (str(datetime.now()) + ' finished conf')
 
 	classes = get_classes(conf.calDir, conf.numClasses) #get classes from data folder
@@ -479,7 +483,7 @@ if __name__ == '__main__':
 	# all_images_class_labels is an array containing the integer corresponding
 	# to the class the image belongs to based on the directory structure
 	all_images, all_images_class_labels, images_per_class = get_all_images(classes, conf)
-	selTrain, selTest = create_split(all_images, images_per_class, conf, selTrain)
+	selTrain, selTest, train2, test2 = create_split(all_images, images_per_class, conf)
 
 	if VERBOSE: print (str(datetime.now()) + ' found classes and created split ')
 
@@ -532,10 +536,6 @@ if __name__ == '__main__':
 		clf = svm.LinearSVC(C=conf.svm.C)
 		if VERBOSE: print (clf)
 
-		print str(train_data.shape)
-		print len(all_images_class_labels[selTrain])
-
-
 		clf.fit(train_data, all_images_class_labels[selTrain])
 		with open(conf.modelPath, 'wb') as fp:
 			dump(clf, fp)
@@ -556,8 +556,6 @@ if __name__ == '__main__':
 		for i in range(0, conf.numTest*conf.numClasses):
 			if(true_classes[i] != predicted_classes[i]):
 				misid.append(selTest[i])
-
-		print "'"+str(misid+selTrain)+"'" + "retrain using these IDs"
 		
 		accuracy = accuracy_score(true_classes, predicted_classes)
 		cm = confusion_matrix(true_classes, predicted_classes)
@@ -584,3 +582,98 @@ if __name__ == '__main__':
 	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
 	#showconfusionmatrix(cm)
 	saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
+
+
+
+
+	#run again with new training IDs
+	classes = get_classes(conf.calDir, conf.numClasses) #get classes from data folder
+	model = Model(classes, conf)
+
+	train, test = create_split2(train2, test2, misid)
+	####################
+	# Train vocabulary #
+	####################
+	if VERBOSE: print (str(datetime.now()) + ' start training vocab')
+	if (not exists(conf.vocabPath)) | OVERWRITE:
+		vocab = trainVocab(train, all_images, conf)
+		print (str(datetime.now()) + ' vocab trained, saving')
+		savemat(conf.vocabPath, {'vocab': vocab})
+		print (str(datetime.now()) + ' vocab saved')
+	else:
+		if VERBOSE: print ("using old vocab from " + conf.vocabPath)
+		vocab = loadmat(conf.vocabPath)['vocab']
+	model.vocab = vocab
+
+
+	##############################
+	# Compute spatial histograms #
+	##############################
+	if VERBOSE: print (str(datetime.now()) + ' start computing hists')
+	if (not exists(conf.histPath)) | OVERWRITE:
+		hists = computeHistograms(all_images, train, test, model, conf)
+		savemat(conf.histPath, {'hists': hists})
+	else:
+		if VERBOSE: print ("using old hists from " + conf.histPath)
+		hists = loadmat(conf.histPath)['hists']
+
+
+	#######################
+	# Compute feature map #
+	#######################
+	if VERBOSE: print (str(datetime.now()) + ' start computing feature map')
+	transformer = AdditiveChi2Sampler()
+	histst = transformer.fit_transform(hists)
+	train_data = histst[0:conf.numTrain*conf.numClasses]
+	test_data = histst[conf.numTrain*conf.numClasses:]
+
+
+	#############
+	# Train SVM #
+	#############
+	if (not exists(conf.modelPath)) | OVERWRITE:
+		if VERBOSE: print (str(datetime.now()) + ' training liblinear svm')
+		if VERBOSE == 'SVM':
+			verbose = True
+		else:
+			verbose = False
+		clf = svm.LinearSVC(C=conf.svm.C)
+		if VERBOSE: print (clf)
+		
+		clf.fit(train_data, all_images_class_labels[train])
+		with open(conf.modelPath, 'wb') as fp:
+			dump(clf, fp)
+	else:
+		if VERBOSE: print ("loading old SVM model")
+		with open(conf.modelPath, 'rb') as fp:
+			clf = load(fp)
+
+	############
+	# Test SVM #
+	############
+	if (not exists(conf.resultPath)) | OVERWRITE:
+		if VERBOSE: print (str(datetime.now()) + ' testing svm')
+		predicted_classes = clf.predict(test_data)
+		true_classes = all_images_class_labels[test]
+		accuracy = accuracy_score(true_classes, predicted_classes)
+		cm = confusion_matrix(true_classes, predicted_classes)
+		with open(conf.resultPath, 'wb') as fp:
+			dump(conf, fp)
+			dump(cm, fp)
+			dump(predicted_classes, fp)
+			dump(true_classes, fp)
+			dump(accuracy, fp)
+	else:
+		with open(conf.resultPath, 'rb') as fp:
+			conf = load(fp)
+			cm = load(fp)
+			predicted_classes = load(fp)
+			true_classes = load(fp)
+			accuracy = load(fp)
+
+
+	##################
+	# Output Results #
+	##################
+	print ("accuracy =" + str(accuracy))
+	print (cm)
