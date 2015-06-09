@@ -305,7 +305,6 @@ def computeHistograms(all_images, selTrain, selTest, model, conf):
 		imgs.append(all_images[i])
 	hists = []
 	#start multiprocessing block
-	'''
 	pool = multiprocessing.Pool(processes=conf.numCore)
 	results = [pool.apply_async(getImageDescriptor, args=(model, imread(imagefname), ii)) for ii, imagefname in enumerate(imgs)]
 	hists = [p.get() for p in results]
@@ -313,7 +312,16 @@ def computeHistograms(all_images, selTrain, selTest, model, conf):
 	for hist in hists:
 		hist.pop(0)
 	#end multiprocessing block
-	'''
+	hists = vstack(hists)
+	print "" #puts in a new line to separate histogram percentage
+	return hists
+
+def computeHistograms2(all_images, selTrain, selTest, model, conf):
+	images = numpy.append(selTrain,selTest).tolist()
+	imgs = []
+	for i in images:
+		imgs.append(all_images[i])
+	hists = []
 	for ii, imagefname in enumerate(imgs):
 		hists.append(getImageDescriptor(model, imread(imagefname), ii)[1])
 	hists = vstack(hists)
@@ -579,18 +587,18 @@ if __name__ == '__main__':
 	##################
 	print ("accuracy =" + str(accuracy))
 	print (cm)
-	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
-	#showconfusionmatrix(cm)
-	saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
 
 
 
 
 	#run again with new training IDs
+	conf.numTrain = 70
+	conf.numTest = 30
 	classes = get_classes(conf.calDir, conf.numClasses) #get classes from data folder
+	all_images, all_images_class_labels, images_per_class = get_all_images(classes, conf)
 	model = Model(classes, conf)
-
 	train, test = create_split2(train2, test2, misid)
+
 	####################
 	# Train vocabulary #
 	####################
@@ -611,7 +619,7 @@ if __name__ == '__main__':
 	##############################
 	if VERBOSE: print (str(datetime.now()) + ' start computing hists')
 	if (not exists(conf.histPath)) | OVERWRITE:
-		hists = computeHistograms(all_images, train, test, model, conf)
+		hists = computeHistograms2(all_images, train, test, model, conf)
 		savemat(conf.histPath, {'hists': hists})
 	else:
 		if VERBOSE: print ("using old hists from " + conf.histPath)
