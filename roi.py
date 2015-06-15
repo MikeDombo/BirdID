@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 from os.path import isdir, basename, splitext, join, isfile
 from os import mkdir, remove
-from skimage import transform, util
-import skimage.io as io
-from scipy import ndimage
-from scipy.misc import imread, imsave, imresize
 from glob import glob
 import multiprocessing
 from PIL import Image
-import random
+from skimage.morphology import disk
+from skimage.filters.rank import mean, median
+import numpy as np
+import matplotlib.pyplot as plt
 
 class Configure(object):
 	def __init__(self, input_folder, output_folder, VERBOSE=False):
@@ -38,54 +37,43 @@ def get_all_images(classes, conf):
 	for i, imageclass in enumerate(classes):
 		imgs = get_imgfiles(join(conf.input_folder,imageclass))
 		pool = multiprocessing.Pool(processes=4)
-		result = [pool.apply_async(rotate, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
-		res = [p.get() for p in result]
-		print "done "+str(imageclass)
-	for i, imageclass in enumerate(classes):
-		imgs = get_imgfiles(join(conf.input_folder,imageclass))
-		pool = multiprocessing.Pool(processes=4)
 		result = [pool.apply_async(zoom, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
 		res = [p.get() for p in result]
 		print "done "+str(imageclass)
 #zoom(0, get_imgfiles(join(conf.input_folder,classes[0]))[0], classes[0], conf)
 
-def rotate(imName, img, imageclass, conf):
-	imName = imName+1
-	i=0
-	im = imread(img)
-	if im.shape[1]>480:
-		im = imresize(im, (480, 640))
-	if not isdir(conf.output_folder+imageclass):
-		mkdir(conf.output_folder+imageclass)
-	while i<360:
-		if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_rot_"+str(i)+".jpg"):
-			imsave(join(conf.output_folder,imageclass)+"/"+str(imName)+"_rot_"+str(i)+".jpg",transform.rotate(im, i, resize=False))
-		elif conf.VERBOSE:
-			print "skipped #"+str(imName)+" in "+str(imageclass)
-		if i == 90:
-			i=270
-		else:
-			i = i+45
-	return str(imName)
 
 def zoom(imName, img, imageclass, conf):
 	imName = imName+1
-	i=random.uniform(1.1,3)
 	im = Image.open(img)
 	if not isdir(conf.output_folder+imageclass):
 		mkdir(conf.output_folder+imageclass)
-	if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_zoom_"+str(i)+".jpg"):
-		x, y = im.size
-		ims = im.crop((int((x-x/i)/2), int((y-y/i)/2), int((x+(x/i))/2), int((y+(y/i))/2)))
-		ims = imresize(ims, (480,640))
-		imsave(join(conf.output_folder,imageclass)+"/"+str(imName)+"_zoom_"+str(i)+".jpg",ims)
-	elif conf.VERBOSE:
-		print "skipped #"+str(imName)+" in "+str(imageclass)
+	x, y = im.size
+	x1=0
+	y1=0
+	means=[]
+	while y1<=y-480:
+		while x1<=x-640:
+			ims = im.crop((x1, y1, x1+640, y1+480))
+			mean1 = mean(np.array(ims)[:,:,0], disk(640))
+			for i, a in enumerate(mean1):
+				mean1[i] = np.mean(a)
+			mean1 = np.mean(mean1)
+			means.append(mean1)
+			if (len(means)>2):
+				if (abs(means[len(means)-1]-means[len(means)-2])>25):
+					print "trig"
+					if (x1!=0):
+						print "maybe bird?"
+						ims.save(join(conf.output_folder,imageclass)+"/"+str(imName)+"_zoom_"+str(x1)+"_"+str(y1)+".jpg")
+			x1 = x1+160
+		x1=0
+		y1 = y1+120
 	return str(imName)
 
 if __name__ == "__main__":
 	input_folder = "../training_2014_09_20/"
-	output_folder = "../output-reshape/"
+	output_folder = "../output-roi/"
 	conf = Configure(input_folder, output_folder, VERBOSE=False)
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
