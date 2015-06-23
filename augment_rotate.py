@@ -47,19 +47,19 @@ def get_all_images(classes, conf):
 		result = [pool.apply_async(zoom, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
 		res = [p.get() for p in result]
 		print "done "+str(imageclass)
-#zoom(0, get_imgfiles(join(conf.input_folder,classes[0]))[0], classes[0], conf)
 
 def rotate(imName, img, imageclass, conf):
 	imName = imName+1
-	i=0
+	i=45
 	im = imread(img)
-	if im.shape[1]>480:
-		im = imresize(im, (480, 640))
 	if not isdir(conf.output_folder+imageclass):
-		mkdir(conf.output_folder+imageclass)
+		try:
+			mkdir(conf.output_folder+imageclass)
+		except:
+			pass
 	while i<360:
 		if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_rot_"+str(i)+".jpg"):
-			imsave(join(conf.output_folder,imageclass)+"/"+str(imName)+"_rot_"+str(i)+".jpg",transform.rotate(im, i, resize=False))
+			imsave(join(conf.output_folder,imageclass)+"/"+str(imName)+"_rot_"+str(i)+".jpg",imresize(transform.rotate(im, i, resize=False), (480, 640)))
 		elif conf.VERBOSE:
 			print "skipped #"+str(imName)+" in "+str(imageclass)
 		if i == 90:
@@ -70,10 +70,13 @@ def rotate(imName, img, imageclass, conf):
 
 def zoom(imName, img, imageclass, conf):
 	imName = imName+1
-	i=random.uniform(1.1,3)
+	i=1.75
 	im = Image.open(img)
 	if not isdir(conf.output_folder+imageclass):
-		mkdir(conf.output_folder+imageclass)
+		try:
+			mkdir(conf.output_folder+imageclass)
+		except:
+			pass
 	if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_zoom_"+str(i)+".jpg"):
 		x, y = im.size
 		ims = im.crop((int((x-x/i)/2), int((y-y/i)/2), int((x+(x/i))/2), int((y+(y/i))/2)))
@@ -85,7 +88,7 @@ def zoom(imName, img, imageclass, conf):
 
 if __name__ == "__main__":
 	input_folder = "../training_2014_09_20/"
-	output_folder = "../output-reshape/"
+	output_folder = "../output-no-0/"
 	conf = Configure(input_folder, output_folder, VERBOSE=False)
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
