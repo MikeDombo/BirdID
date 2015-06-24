@@ -41,6 +41,7 @@ def get_all_images(classes, conf):
 		pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
 		result = [pool.apply_async(remove, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
 		res = [p.get() for p in result]
+		pool.terminate()
 		print "done "+str(imageclass)
 	print str(datetime.now())+" completely done"
 
@@ -117,11 +118,11 @@ def save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf
 	if conf.show_figure:
 		plt.show()
 	fig.savefig(conf.output_folder+"figures/"+imageclass+"/figure_"+str(imName)+".png", dpi=75)
-	plt.close('all')
+	plt.close(fig)
 
 if __name__ == "__main__":
 	input_folder = "../training_2014_09_20/"
 	output_folder = "../output-bg-orig/"
-	conf = Configure(input_folder, output_folder, save_figure=True)
+	conf = Configure(input_folder, output_folder, save_figure=False)
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
