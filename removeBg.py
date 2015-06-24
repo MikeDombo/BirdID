@@ -93,8 +93,6 @@ def remove(imName, img, imageclass, conf):
 		x,y,z = im.shape
 		if not imageclass == "EmptyFeeder":
 			imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", im)
-		else if x*y>300000: #check if area of crop is what I consider to be too small
-			imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", im)
 		else:
 			imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem_NoMod.jpg", imOrig)
 	return str(imName)
