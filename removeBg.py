@@ -11,9 +11,11 @@ from scipy import ndimage
 from datetime import datetime
 
 class Configure(object):
-	def __init__(self, input_folder, output_folder, VERBOSE=False):
+	def __init__(self, input_folder, output_folder, VERBOSE=False, save_figure=False, show_figure=False):
 		self.input_folder = input_folder
 		self.output_folder = output_folder
+		self.save_figure = save_figure
+		self.show_figure = show_figure
 		self.VERBOSE = VERBOSE
 
 def get_classes(datasetpath):
@@ -36,14 +38,9 @@ def get_all_images(classes, conf):
 		mkdir(conf.output_folder)
 	for i, imageclass in enumerate(classes):
 		imgs = get_imgfiles(join(conf.input_folder,imageclass))
-		#"""
-		pool = multiprocessing.Pool(processes=4)
+		pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
 		result = [pool.apply_async(remove, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
 		res = [p.get() for p in result]
-		"""
-		for imName, img in enumerate(imgs):
-			remove(imName, img, imageclass, conf)
-		"""
 		print "done "+str(imageclass)
 	print str(datetime.now())+" completely done"
 
@@ -59,7 +56,7 @@ def trim(im, color):
 def remove(imName, img, imageclass, conf):
 	imName = imName+1
 	im = imread(img)
-	imOrig = im
+	imOrig = imread(img)
 	if not isdir(conf.output_folder+imageclass):
 		try:
 			mkdir(conf.output_folder+imageclass)
@@ -78,27 +75,53 @@ def remove(imName, img, imageclass, conf):
 					binary_im[i,j] = 0
 				else:
 					binary_im[i,j] = 1
-		labels, numL = ndimage.label(binary_im)
-		sizes = ndimage.sum(binary_im,labels,range(1,numL+1))
-		map = np.where(sizes==sizes.max())[0] + 1
+		labels, numL = ndimage.label(binary_im) #find regions
+		sizes = ndimage.sum(binary_im,labels,range(1,numL+1)) #find sizes of regions
+		map = np.where(sizes==sizes.max())[0] + 1 #find largest region
 		max_index = np.zeros(numL + 1, np.uint8)
 		max_index[map] = 255
 		max_feature = max_index[labels]
-		"""
-		plt.imshow(binary_im)
-		plt.show()
-		plt.imshow(labels, interpolation="nearest")
-		plt.show()
-		plt.imshow(max_feature, interpolation="nearest")
-		plt.show()
-		"""
-		im = trim(Image.fromarray(max_feature), Image.fromarray(imOrig))
-		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", im)
+		
+		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imOrig))
+		
+		if conf.save_figure:
+			save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf)
+		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", imCrop)
 	return str(imName)
+
+def save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf):
+	fig = plt.figure(figsize=(15,10))
+	ax = fig.add_subplot(2,2,1)
+	ax2 = fig.add_subplot(2,2,2)
+	ax3 = fig.add_subplot(2,2,3)
+	ax4 = fig.add_subplot(2,2,4)
+	ax.imshow(binary_im, cmap="gray")
+	ax.set_title("Binary Image")
+	ax2.imshow(labels)
+	ax2.set_title("Labeled Regions")
+	ax3.imshow(max_feature, cmap="gray")
+	ax3.set_title("Largest Region")
+	ax4.imshow(imCrop)
+	ax4.set_title("Cropped Image")
+	fig.set_tight_layout(True)
+	if not isdir(conf.output_folder+"figures"):
+		try:
+			mkdir(conf.output_folder+"figures")
+		except:
+			pass
+	if not isdir(conf.output_folder+"figures/"+imageclass):
+		try:
+			mkdir(conf.output_folder+"figures/"+imageclass)
+		except:
+			pass
+	if conf.show_figure:
+		plt.show()
+	fig.savefig(conf.output_folder+"figures/"+imageclass+"/figure_"+str(imName)+".png", dpi=75)
+	plt.close('all')
 
 if __name__ == "__main__":
 	input_folder = "../training_2014_09_20/"
 	output_folder = "../output-bg-orig/"
-	conf = Configure(input_folder, output_folder, VERBOSE=False)
+	conf = Configure(input_folder, output_folder, save_figure=True)
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
