@@ -7,6 +7,7 @@ from scipy.misc import imread, imsave, imresize
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageChops
+from scipy import ndimage
 from datetime import datetime
 
 class Configure(object):
@@ -35,28 +36,30 @@ def get_all_images(classes, conf):
 		mkdir(conf.output_folder)
 	for i, imageclass in enumerate(classes):
 		imgs = get_imgfiles(join(conf.input_folder,imageclass))
-		"""
+		#"""
 		pool = multiprocessing.Pool(processes=4)
 		result = [pool.apply_async(remove, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
 		res = [p.get() for p in result]
 		"""
 		for imName, img in enumerate(imgs):
 			remove(imName, img, imageclass, conf)
+		"""
 		print "done "+str(imageclass)
 	print str(datetime.now())+" completely done"
 
 
-def trim(im):
-    bg = Image.new(im.mode, im.size, (255,255,255))
+def trim(im, color):
+    bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
     diff = ImageChops.difference(im, bg)
-    diff = ImageChops.add(diff, diff, 2.0, -150)
+    diff = ImageChops.add(diff, diff, 2.0, -100)
     bbox = diff.getbbox()
     if bbox:
-        return im.crop(bbox)
+        return color.crop(bbox)
 
 def remove(imName, img, imageclass, conf):
 	imName = imName+1
 	im = imread(img)
+	imOrig = im
 	if not isdir(conf.output_folder+imageclass):
 		try:
 			mkdir(conf.output_folder+imageclass)
@@ -72,15 +75,28 @@ def remove(imName, img, imageclass, conf):
 					binary_im[i,j] = 0
 				else:
 					binary_im[i,j] = 1
-		#im = trim(Image.fromarray(im))
+		labels, numL = ndimage.label(binary_im)
+		np.set_printoptions(threshold='nan')
+		sizes = ndimage.sum(binary_im,labels,range(1,numL+1))
+		map = np.where(sizes==sizes.max())[0] + 1
+		max_index = np.zeros(numL + 1, np.uint8)
+		max_index[map] = 255
+		max_feature = max_index[labels]
+		"""
 		plt.imshow(binary_im)
 		plt.show()
+		plt.imshow(labels, interpolation="nearest")
+		plt.show()
+		plt.imshow(max_feature, interpolation="nearest")
+		plt.show()
+		"""
+		im = trim(Image.fromarray(max_feature), Image.fromarray(imOrig))
 		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", im)
 	return str(imName)
 
 if __name__ == "__main__":
 	input_folder = "../training_2014_09_20/"
-	output_folder = "../output-bg/"
+	output_folder = "../output-bg-orig/"
 	conf = Configure(input_folder, output_folder, VERBOSE=False)
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
