@@ -7,6 +7,7 @@ from PIL import Image
 from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
+import multiprocessing
 
 
 class Configure(object):
@@ -46,7 +47,7 @@ def get_all_images(classes, conf):
 				s = imread(im)
 				h = histogram_adjust(s, imread(conf.src))
 				imsave(conf.output_folder+imageclass+"/"+str(ii)+"histo"+".jpg", h(s))
-			#"""
+				"""
 				hist1, bin1 = np.histogram(s, bins=256)
 				hist2, bin2 = np.histogram(imread(conf.output_folder+imageclass+"/"+str(ii)+"histo"+".jpg"), bins=256)
 				hist3, bin3 = np.histogram(imread(conf.src), bins=256)
@@ -56,15 +57,15 @@ def get_all_images(classes, conf):
 				ax2 = fig.add_subplot(2,2,2)
 				ax3 = fig.add_subplot(2,2,3)
 				ax4 = fig.add_subplot(2,2,4)
-				ax3.bar(center1, hist1, align='center', color='red')
-				ax3.bar(center1, hist3, align='center', color='green')
+				ax3.bar(center1, hist1, align='center', color='r', edgecolor='r')
+				ax3.bar(center1, hist3, align='center', color='g', edgecolor='g')
 				ax3.set_title("Input and Aim")
-				ax4.bar(center1, hist2, align='center', color='red')
-				ax4.bar(center1, hist3, align='center', color='green')
+				ax4.bar(center1, hist2, align='center', color='r', edgecolor='r')
+				ax4.bar(center1, hist3, align='center', color='g', edgecolor='g')
 				ax4.set_title("Output and Aim")
-				ax.bar(center1, hist1, align='center', color='red')
+				ax.bar(center1, hist1, align='center', color='r', edgecolor='r')
 				ax.set_title("Input")
-				ax2.bar(center1, hist2, align='center', color='green')
+				ax2.bar(center1, hist2, align='center', color='g', edgecolor='g')
 				ax2.set_title("Output")
 				#plt.show()
 				if not isdir(output_folder+"figures"):
@@ -77,9 +78,10 @@ def get_all_images(classes, conf):
 						mkdir(output_folder+"figures/"+imageclass)
 					except:
 						pass
-				fig.savefig(output_folder+"figures/"+imageclass+"/figure_"+str(ii)+".png", dpi=600)
+				fig.savefig(output_folder+"figures/"+imageclass+"/figure_"+str(ii)+".png", dpi=75)
 				plt.close('all')
-			#"""
+				"""
+
 		print "done "+str(imageclass)
 
 
@@ -103,13 +105,12 @@ def histogram_adjust(source, target):
 		source = source.flat
 		source = source/np.max(source) * (len(s_edges) - 1)
 		source = np.clip(np.round(source), 0, len(s_edges) - 1).astype(int)
-		return t_edges[mapping[source]].reshape(sshape) + \
-			(t_edges[1] - t_edges[0])/2.
+		return t_edges[mapping[source]].reshape(sshape) + (t_edges[1] - t_edges[0])/2.
 	return tf
 
 if __name__ == "__main__":
-	input_folder = "../training_2014_09_20/"
-	output_folder = "../test-histo/"
+	input_folder = "../retinex/"
+	output_folder = "../retinex+histo/"
 	source = input_folder+"EmptyFeeder/2014-03-06_12.31.03-1.jpg"
 	conf = Configure(input_folder, output_folder, source, VERBOSE=False)
 	classes = get_classes(input_folder)

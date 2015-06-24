@@ -3,7 +3,7 @@ from os.path import isdir, basename, splitext, join, isfile
 from os import mkdir, remove, listdir
 from glob import glob
 import multiprocessing
-from scipy.misc import imread, imsave, imresize
+from scipy.misc import imread, imsave
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageChops
@@ -76,7 +76,6 @@ def remove(imName, img, imageclass, conf):
 				else:
 					binary_im[i,j] = 1
 		labels, numL = ndimage.label(binary_im)
-		np.set_printoptions(threshold='nan')
 		sizes = ndimage.sum(binary_im,labels,range(1,numL+1))
 		map = np.where(sizes==sizes.max())[0] + 1
 		max_index = np.zeros(numL + 1, np.uint8)
@@ -91,7 +90,13 @@ def remove(imName, img, imageclass, conf):
 		plt.show()
 		"""
 		im = trim(Image.fromarray(max_feature), Image.fromarray(imOrig))
-		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", im)
+		x,y,z = im.shape
+		if not imageclass == "EmptyFeeder":
+			imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", im)
+		else if x*y>300000: #check if area of crop is what I consider to be too small
+			imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", im)
+		else:
+			imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem_NoMod.jpg", imOrig)
 	return str(imName)
 
 if __name__ == "__main__":
