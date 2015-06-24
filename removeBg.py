@@ -63,9 +63,9 @@ def remove(imName, img, imageclass, conf):
 		except:
 			pass
 	if imageclass == "EmptyFeeder":
-		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem_NoMod.jpg", imOrig)
+		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop_NoMod.jpg", imOrig)
 		return "skipping"
-	if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg"):
+	if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop.jpg"):
 		x, y, z = im.shape
 		binary_im = np.empty([x,y],np.uint8)
 		for i in range(0,x):
@@ -86,7 +86,7 @@ def remove(imName, img, imageclass, conf):
 		
 		if conf.save_figure:
 			save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf)
-		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", imCrop)
+		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop.jpg", imCrop)
 	return str(imName)
 
 def save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf):
