@@ -65,6 +65,9 @@ def remove(imName, img, imageclass, conf):
 			mkdir(conf.output_folder+imageclass)
 		except:
 			pass
+	if imageclass == "EmptyFeeder":
+		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem_NoMod.jpg", imOrig)
+		return "skipping"
 	if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg"):
 		x, y, z = im.shape
 		binary_im = np.empty([x,y],np.uint8)
@@ -90,11 +93,7 @@ def remove(imName, img, imageclass, conf):
 		plt.show()
 		"""
 		im = trim(Image.fromarray(max_feature), Image.fromarray(imOrig))
-		x,y,z = im.shape
-		if not imageclass == "EmptyFeeder":
-			imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", im)
-		else:
-			imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem_NoMod.jpg", imOrig)
+		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_bgrem.jpg", im)
 	return str(imName)
 
 if __name__ == "__main__":
