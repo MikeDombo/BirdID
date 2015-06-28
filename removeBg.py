@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from os.path import isdir, basename, splitext, join, isfile
+from os.path import isdir, basename, splitext, join, isfile, getsize
 from os import mkdir, remove, listdir
 from glob import glob
 import multiprocessing
@@ -50,7 +50,7 @@ def get_all_images(classes, conf):
 			imgRng = reversed(list(enumerate(imgs)))
 		else:
 			imgRng = enumerate(imgs)
-		result = [pool.apply_async(remove, args=(imName, img, imageclass, conf)) for imName, img in imgRng]
+		result = [pool.apply_async(autoCrop, args=(imName, img, imageclass, conf)) for imName, img in imgRng]
 		res = [p.get() for p in result]
 		pool.terminate()
 		print "done "+str(imageclass)
@@ -65,7 +65,7 @@ def trim(im, color):
     if bbox:
         return color.crop(bbox)
 
-def remove(imName, img, imageclass, conf):
+def autoCrop(imName, img, imageclass, conf):
 	imName = imName+1
 	im = imread(img)
 	imOrig = imread(img)
@@ -99,6 +99,9 @@ def remove(imName, img, imageclass, conf):
 		if conf.save_figure:
 			save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf)
 		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop.jpg", imCrop)
+	elif getsize(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop.jpg")<10:
+		remove(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop.jpg")
+		autoCrop(imName, img, imageclass, conf)
 	return str(imName)
 
 def save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf):
@@ -138,19 +141,20 @@ if __name__ == "__main__":
 						type=float)
 	parser.add_argument("--save_fig", help="Save Figures", type=bool)
 	parser.add_argument("--reversed", help="Run backwards?", type=bool)
-	args = parser.parse_args()
 	
+	args = parser.parse_args()
+						
 	input_folder = "/Users/md3jr/Desktop/training_2014_09_20/"
 	output_folder = "/Volumes/users/m/md3jr/private/output-bg-1.045/"
-	
+						
 	conf = Configure(input_folder, output_folder)
-	
+						
 	if args.threshold:
 		conf.threshold = args.threshold
 	if args.save_fig:
 		conf.save_figure = args.save_fig
 	if args.reversed:
 		conf.reversed = args.reversed
-
+						
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
