@@ -141,6 +141,8 @@ if __name__ == "__main__":
 						type=float)
 	parser.add_argument("--save_fig", help="Save Figures", type=bool)
 	parser.add_argument("--reversed", help="Run backwards?", type=bool)
+	parser.add_argument("--input_dir", help="Input Directory")
+	parser.add_argument("--output_dir", help="Output Dataset Directory")
 	
 	args = parser.parse_args()
 						
@@ -155,6 +157,10 @@ if __name__ == "__main__":
 		conf.save_figure = args.save_fig
 	if args.reversed:
 		conf.reversed = args.reversed
-						
+	if args.input_dir:
+		conf.input_folder = args.input_dir
+	if args.output_dir:
+		conf.output_folder = args.output_dir
+
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
