@@ -12,12 +12,13 @@ from datetime import datetime
 import argparse
 
 class Configure(object):
-	def __init__(self, input_folder, output_folder, VERBOSE=False, save_figure=False, show_figure=False, reversed=False):
+	def __init__(self, input_folder, output_folder, VERBOSE=False, save_figure=False, show_figure=False, reversed=False, threshold = 1.05):
 		self.input_folder = input_folder
 		self.output_folder = output_folder
 		self.save_figure = save_figure
 		self.show_figure = show_figure
 		self.reversed = reversed
+		self.threshold = threshold
 		self.VERBOSE = VERBOSE
 
 def get_classes(datasetpath):
@@ -81,7 +82,7 @@ def remove(imName, img, imageclass, conf):
 		binary_im = np.empty([x,y],np.uint8)
 		for i in range(0,x):
 			for j in range(0,y):
-				if im[i,j,1] > im[i,j,0]*1 and im[i,j,1] > im[i,j,2]*1:
+				if im[i,j,1] > im[i,j,0]*conf.threshold and im[i,j,1] > im[i,j,2]*conf.threshold:
 					im[i,j,:] = 255
 					binary_im[i,j] = 0
 				else:
@@ -139,6 +140,9 @@ if __name__ == "__main__":
 	parser.add_argument("--reversed", help="Run backwards?", type=bool)
 	args = parser.parse_args()
 	
+	input_folder = "/Users/md3jr/Desktop/training_2014_09_20/"
+	output_folder = "/Volumes/users/m/md3jr/private/output-bg-1.045/"
+	
 	conf = Configure(input_folder, output_folder)
 	
 	if args.threshold:
@@ -147,9 +151,6 @@ if __name__ == "__main__":
 		conf.save_figure = args.save_fig
 	if args.reversed:
 		conf.reversed = args.reversed
-
-	input_folder = "/Users/md3jr/Desktop/training_2014_09_20/"
-	output_folder = "/Volumes/users/m/md3jr/private/output-bg-2/"
 
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
