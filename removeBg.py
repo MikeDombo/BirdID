@@ -10,15 +10,19 @@ from PIL import Image, ImageChops
 from scipy import ndimage
 from datetime import datetime
 import argparse
+import sys
 
 class Configure(object):
-	def __init__(self, input_folder, output_folder, VERBOSE=False, save_figure=False, show_figure=False, reversed=False, threshold = 1.05):
+	def __init__(self, input_folder, output_folder, VERBOSE=False, save_figure=False, show_figure=False, reversed=False, threshold = 1.05, dual_dir = False):
 		self.input_folder = input_folder
 		self.output_folder = output_folder
 		self.save_figure = save_figure
 		self.show_figure = show_figure
 		self.reversed = reversed
 		self.threshold = threshold
+		self.dual_dir = dual_dir
+		self.numTot = 0
+		self.imPerClass = []
 		self.VERBOSE = VERBOSE
 
 def get_classes(datasetpath):
@@ -39,6 +43,16 @@ def get_all_images(classes, conf):
 	print str(datetime.now())+" starting"
 	if not isdir(conf.output_folder):
 		mkdir(conf.output_folder)
+	if conf.dual_dir and not isdir(conf.output_folder+"-bgRem/"):
+			mkdir(conf.output_folder+"-bgRem/")
+	if conf.reversed:
+		rng = reversed(list(enumerate(classes)))
+	else:
+		rng = enumerate(classes)
+	for i, imageclass in rng:
+		conf.imPerClass.append([imageclass, len(get_imgfiles(join(conf.input_folder,imageclass)))])
+	for summer in conf.imPerClass:
+		conf.numTot = conf.numTot+summer[1]
 	if conf.reversed:
 		rng = reversed(list(enumerate(classes)))
 	else:
@@ -53,7 +67,8 @@ def get_all_images(classes, conf):
 		result = [pool.apply_async(autoCrop, args=(imName, img, imageclass, conf)) for imName, img in imgRng]
 		res = [p.get() for p in result]
 		pool.terminate()
-		print "done "+str(imageclass)
+		print ""
+		print str(datetime.now())+" Done "+str(imageclass)
 	print str(datetime.now())+" completely done"
 
 
@@ -69,15 +84,15 @@ def autoCrop(imName, img, imageclass, conf):
 	imName = imName+1
 	im = imread(img)
 	imOrig = imread(img)
-	if not isdir(conf.output_folder+imageclass):
+	if not isdir(conf.output_folder+"/"+imageclass):
 		try:
-			mkdir(conf.output_folder+imageclass)
+			mkdir(conf.output_folder+"/"+imageclass)
 		except:
 			pass
 	if imageclass == "EmptyFeeder":
-		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop_NoMod.jpg", imOrig)
+		imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop_NoMod.jpg", imOrig)
 		return "skipping"
-	if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop.jpg"):
+	if not isfile(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg"):
 		x, y, z = im.shape
 		binary_im = np.empty([x,y],np.uint8)
 		for i in range(0,x):
@@ -98,10 +113,25 @@ def autoCrop(imName, img, imageclass, conf):
 		
 		if conf.save_figure:
 			save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf)
-		imsave(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop.jpg", imCrop)
-	elif getsize(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop.jpg")<10:
-		remove(conf.output_folder+imageclass+"/"+str(imName)+"_AutoCrop.jpg")
+		imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg", imCrop)
+
+		if conf.dual_dir:
+			if not isdir(conf.output_folder+"-bgRem/"+imageclass):
+				try:
+					mkdir(conf.output_folder+"-bgRem/"+imageclass)
+				except:
+					pass
+			imCrop = trim(Image.fromarray(max_feature), Image.fromarray(im))
+			imsave(conf.output_folder+"-bgRem/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg", imCrop)
+
+	elif getsize(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg")<10:
+		remove(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg")
 		autoCrop(imName, img, imageclass, conf)
+	for i, classes in enumerate(conf.imPerClass):
+		if classes[0] == imageclass:
+			idx = i
+	sys.stdout.write ("\r"+str(datetime.now())+" AutoCropped "+imageclass+" Images: "+str((imName/float(conf.imPerClass[idx][1]))*100.0)[:5]+"%") #make progress percentage
+	sys.stdout.flush()
 	return str(imName)
 
 def save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf):
@@ -119,19 +149,19 @@ def save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf
 	ax4.imshow(imCrop)
 	ax4.set_title("Cropped Image")
 	fig.set_tight_layout(True)
-	if not isdir(conf.output_folder+"figures"):
+	if not isdir(conf.output_folder+"/figures"):
 		try:
-			mkdir(conf.output_folder+"figures")
+			mkdir(conf.output_folder+"/figures")
 		except:
 			pass
-	if not isdir(conf.output_folder+"figures/"+imageclass):
+	if not isdir(conf.output_folder+"/figures/"+imageclass):
 		try:
-			mkdir(conf.output_folder+"figures/"+imageclass)
+			mkdir(conf.output_folder+"/figures/"+imageclass)
 		except:
 			pass
 	if conf.show_figure:
 		plt.show()
-	fig.savefig(conf.output_folder+"figures/"+imageclass+"/figure_"+str(imName)+".png", dpi=75)
+	fig.savefig(conf.output_folder+"/figures/"+imageclass+"/figure_"+str(imName)+".png", dpi=75)
 	plt.close(fig)
 
 if __name__ == "__main__":
@@ -143,11 +173,12 @@ if __name__ == "__main__":
 	parser.add_argument("--reversed", help="Run backwards?", type=bool)
 	parser.add_argument("--input_dir", help="Input Directory")
 	parser.add_argument("--output_dir", help="Output Dataset Directory")
+	parser.add_argument("--dual_dir", help="Output to 2 directories, one with bg included, one with bg removed", type=bool)
 	
 	args = parser.parse_args()
 						
 	input_folder = "/Users/md3jr/Desktop/training_2014_09_20/"
-	output_folder = "/Volumes/users/m/md3jr/private/output-bg-1.045/"
+	output_folder = "/Volumes/users/m/md3jr/private/output-bg-1.045"
 						
 	conf = Configure(input_folder, output_folder)
 						
@@ -161,6 +192,8 @@ if __name__ == "__main__":
 		conf.input_folder = args.input_dir
 	if args.output_dir:
 		conf.output_folder = args.output_dir
+	if args.dual_dir:
+		conf.dual_dir = args.dual_dir
 
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
