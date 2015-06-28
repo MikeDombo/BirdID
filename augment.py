@@ -87,8 +87,8 @@ def zoom(imName, img, imageclass, conf):
 	return str(imName)
 
 if __name__ == "__main__":
-	input_folder = "../training_2014_09_20/"
-	output_folder = "../output-no-0/"
+	input_folder = "../retinex/"
+	output_folder = "../retinex-zoom/"
 	conf = Configure(input_folder, output_folder, VERBOSE=False)
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)

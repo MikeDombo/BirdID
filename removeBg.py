@@ -47,7 +47,7 @@ def get_all_images(classes, conf):
 
 
 def trim(im, color):
-    bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
+    bg = Image.new(im.mode, im.size, 0)
     diff = ImageChops.difference(im, bg)
     diff = ImageChops.add(diff, diff, 2.0, -100)
     bbox = diff.getbbox()
@@ -71,7 +71,7 @@ def remove(imName, img, imageclass, conf):
 		binary_im = np.empty([x,y],np.uint8)
 		for i in range(0,x):
 			for j in range(0,y):
-				if im[i,j,1] > im[i,j,0]*1.05 and im[i,j,1] > im[i,j,2]*1.05:
+				if im[i,j,1] > im[i,j,0]*1 and im[i,j,1] > im[i,j,2]*1:
 					im[i,j,:] = 255
 					binary_im[i,j] = 0
 				else:
@@ -121,8 +121,8 @@ def save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf
 	plt.close(fig)
 
 if __name__ == "__main__":
-	input_folder = "../training_2014_09_20/"
-	output_folder = "../output-bg-orig/"
-	conf = Configure(input_folder, output_folder, save_figure=False)
+	input_folder = "/Users/md3jr/Desktop/training_2014_06_17/"
+	output_folder = "/Volumes/users/m/md3jr/private/output-bg-2/"
+	conf = Configure(input_folder, output_folder, save_figure=True)
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
