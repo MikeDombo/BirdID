@@ -9,13 +9,15 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageChops
 from scipy import ndimage
 from datetime import datetime
+import argparse
 
 class Configure(object):
-	def __init__(self, input_folder, output_folder, VERBOSE=False, save_figure=False, show_figure=False):
+	def __init__(self, input_folder, output_folder, VERBOSE=False, save_figure=False, show_figure=False, reversed=False):
 		self.input_folder = input_folder
 		self.output_folder = output_folder
 		self.save_figure = save_figure
 		self.show_figure = show_figure
+		self.reversed = reversed
 		self.VERBOSE = VERBOSE
 
 def get_classes(datasetpath):
@@ -36,10 +38,18 @@ def get_all_images(classes, conf):
 	print str(datetime.now())+" starting"
 	if not isdir(conf.output_folder):
 		mkdir(conf.output_folder)
-	for i, imageclass in enumerate(classes):
+	if conf.reversed:
+		rng = reversed(list(enumerate(classes)))
+	else:
+		rng = enumerate(classes)
+	for i, imageclass in rng:
 		imgs = get_imgfiles(join(conf.input_folder,imageclass))
 		pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-		result = [pool.apply_async(remove, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
+		if conf.reversed:
+			imgRng = reversed(list(enumerate(imgs)))
+		else:
+			imgRng = enumerate(imgs)
+		result = [pool.apply_async(remove, args=(imName, img, imageclass, conf)) for imName, img in imgRng]
 		res = [p.get() for p in result]
 		pool.terminate()
 		print "done "+str(imageclass)
@@ -121,8 +131,25 @@ def save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf
 	plt.close(fig)
 
 if __name__ == "__main__":
-	input_folder = "/Users/md3jr/Desktop/training_2014_06_17/"
+	parser = argparse.ArgumentParser()
+	parser.add_argument("--threshold",
+						help="Threshold value",
+						type=float)
+	parser.add_argument("--save_fig", help="Save Figures", type=bool)
+	parser.add_argument("--reversed", help="Run backwards?", type=bool)
+	args = parser.parse_args()
+	
+	conf = Configure(input_folder, output_folder)
+	
+	if args.threshold:
+		conf.threshold = args.threshold
+	if args.save_fig:
+		conf.save_figure = args.save_fig
+	if args.reversed:
+		conf.reversed = args.reversed
+
+	input_folder = "/Users/md3jr/Desktop/training_2014_09_20/"
 	output_folder = "/Volumes/users/m/md3jr/private/output-bg-2/"
-	conf = Configure(input_folder, output_folder, save_figure=True)
+
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
