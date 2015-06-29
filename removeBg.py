@@ -91,6 +91,13 @@ def autoCrop(imName, img, imageclass, conf):
 			pass
 	if imageclass == "EmptyFeeder":
 		imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop_NoMod.jpg", imOrig)
+		if conf.dual_dir:
+			if not isdir(conf.output_folder+"-bgRem/"+imageclass):
+				try:
+					mkdir(conf.output_folder+"-bgRem/"+imageclass)
+				except:
+					pass
+			imsave(conf.output_folder+"-bgRem/"+imageclass+"/"+str(imName)+"_AutoCrop_NoMod.jpg", imCrop)
 		return "skipping"
 	if not isfile(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg"):
 		x, y, z = im.shape
