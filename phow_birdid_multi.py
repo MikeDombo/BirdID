@@ -17,7 +17,7 @@ from vlfeat import vl_ikmeans
 from scipy.io import loadmat, savemat
 from sklearn import svm
 from sklearn.metrics import confusion_matrix, accuracy_score
-import pylab as pl
+import matplotlib.pyplot as plt
 from datetime import datetime
 from sklearn.kernel_approximation import AdditiveChi2Sampler
 from cPickle import dump, load
@@ -68,8 +68,11 @@ class Configuration(object):
 		self.numbers_of_features_for_histogram = 100000
 		self.imSize = 480
 		
-		self.vocabPath = join(self.dataDir, identifier + '-vocab.py.mat')
-		self.histPath = join(self.dataDir, identifier + '-hists.py.mat')
+		self.saveFig = False
+		self.showFig = False
+		
+		self.vocabPath = join(self.dataDir, self.prefix + '-' + identifier + '-vocab.py.mat')
+		self.histPath = join(self.dataDir, self.prefix + '-'  + identifier + '-hists.py.mat')
 		self.modelPath = join(self.dataDir, self.prefix + '-' + identifier + '-model.py.mat')
 		self.resultPath = join(self.dataDir, self.prefix + '-' + identifier + '-result')
 
@@ -203,13 +206,6 @@ def get_imgfiles(path, extensions): #get images from 1 class folder
 	return all_files
 
 
-def showconfusionmatrix(cm):
-	pl.matshow(cm)
-	pl.title('Confusion matrix')
-	pl.colorbar()
-	pl.show()
-
-
 def get_all_images(classes, conf): #gets all images from all classes
 	all_images = []
 	all_images_class_labels = []
@@ -332,6 +328,38 @@ def saveCSV(file, accuracy):
 	ftp.storbinary('STOR '+str(file), open('temp.xlsx','r'))
 	ftp.close()
 	remove('temp.xlsx')
+
+def showFig(images, conf):
+	axes = {}
+	if len(images)>0:
+		if len(images)<=16:
+			x = 4
+			y = 4
+		elif len(images)<=25:
+			x = 5
+			y = 5
+		elif len(images)<=35:
+			x = 7
+			y = 5
+		else:
+			x = 7
+			y = 5
+			while int(x)*y<len(images):
+				y = y+1
+				x = y*(4/3)
+		x = int(x)
+		fig = plt.figure(figsize=(15,10))
+		for i, im in enumerate(images):
+			axes[i] = fig.add_subplot(x,y,i+1)
+			axes[i].imshow(imread(im[0]))
+			axes[i].get_xaxis().set_ticks([])
+			axes[i].get_yaxis().set_ticks([])
+			axes[i].set_title("Classified as a "+conf.classes[im[1]['predictedclass']]+"\nActually is a "+conf.classes[im[1]['trueclass']])
+	
+	fig.set_tight_layout(True)
+	plt.show()
+	#fig.savefig(conf.output_folder+"/figures/"+imageclass+"/figure_"+str(imName)+".png", dpi=75)
+
 
 ################
 # Main Program #
@@ -525,6 +553,7 @@ if __name__ == '__main__':
 		true_classes = all_images_class_labels[selTest]
 		accuracy = accuracy_score(true_classes, predicted_classes)
 		cm = confusion_matrix(true_classes, predicted_classes)
+
 		with open(conf.resultPath, 'wb') as fp:
 			dump(conf, fp)
 			dump(cm, fp)
@@ -538,7 +567,12 @@ if __name__ == '__main__':
 			predicted_classes = load(fp)
 			true_classes = load(fp)
 			accuracy = load(fp)
-	
+	#Generate Figure of misidentified images
+	misid = []
+	for i in range(0, conf.numTest*conf.numClasses):
+		if(true_classes[i] != predicted_classes[i]):
+			misid.append([all_images[selTest[i]],{'trueclass':true_classes[i],'predictedclass':predicted_classes[i]}])
+	showFig(misid, conf)
 
 	##################
 	# Output Results #
@@ -546,5 +580,4 @@ if __name__ == '__main__':
 	print ("accuracy =" + str(accuracy))
 	print (cm)
 	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
-	#showconfusionmatrix(cm)
 	saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
