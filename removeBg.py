@@ -13,15 +13,14 @@ import argparse
 import sys
 
 class Configure(object):
-	def __init__(self, input_folder, output_folder, VERBOSE=False, save_figure=False, show_figure=False, reversed=False, threshold = 1.05, dual_dir = False):
+	def __init__(self, input_folder, output_folder, VERBOSE=False, save_figure=False, show_figure=False, threshold = 1.05, incBg = False):
 		self.input_folder = input_folder
 		self.output_folder = output_folder
 		self.save_figure = save_figure
 		self.show_figure = show_figure
-		self.reversed = reversed
 		self.threshold = threshold
-		self.dual_dir = dual_dir
 		self.numTot = 0
+		self.incBg = incBg
 		self.imPerClass = []
 		self.VERBOSE = VERBOSE
 
@@ -43,28 +42,14 @@ def get_all_images(classes, conf):
 	print str(datetime.now())+" starting"
 	if not isdir(conf.output_folder):
 		mkdir(conf.output_folder)
-	if conf.dual_dir and not isdir(conf.output_folder+"-bgRem/"):
-			mkdir(conf.output_folder+"-bgRem/")
-	if conf.reversed:
-		rng = reversed(list(enumerate(classes)))
-	else:
-		rng = enumerate(classes)
-	for i, imageclass in rng:
+	for i, imageclass in enumerate(classes):
 		conf.imPerClass.append([imageclass, len(get_imgfiles(join(conf.input_folder,imageclass)))])
 	for summer in conf.imPerClass:
 		conf.numTot = conf.numTot+summer[1]
-	if conf.reversed:
-		rng = reversed(list(enumerate(classes)))
-	else:
-		rng = enumerate(classes)
-	for i, imageclass in rng:
+	for i, imageclass in enumerate(classes):
 		imgs = get_imgfiles(join(conf.input_folder,imageclass))
 		pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-		if conf.reversed:
-			imgRng = reversed(list(enumerate(imgs)))
-		else:
-			imgRng = enumerate(imgs)
-		result = [pool.apply_async(autoCrop, args=(imName, img, imageclass, conf)) for imName, img in imgRng]
+		result = [pool.apply_async(autoCrop, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
 		res = [p.get() for p in result]
 		pool.terminate()
 		print ""
@@ -91,13 +76,6 @@ def autoCrop(imName, img, imageclass, conf):
 			pass
 	if imageclass == "EmptyFeeder":
 		imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop_NoMod.jpg", imOrig)
-		if conf.dual_dir:
-			if not isdir(conf.output_folder+"-bgRem/"+imageclass):
-				try:
-					mkdir(conf.output_folder+"-bgRem/"+imageclass)
-				except:
-					pass
-			imsave(conf.output_folder+"-bgRem/"+imageclass+"/"+str(imName)+"_AutoCrop_NoMod.jpg", imCrop)
 		return "skipping"
 	if not isfile(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg"):
 		x, y, z = im.shape
@@ -116,20 +94,16 @@ def autoCrop(imName, img, imageclass, conf):
 		max_index[map] = 255
 		max_feature = max_index[labels]
 		
-		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imOrig))
+		if conf.incBg:
+			imCrop = imOrig
+		else:
+			imCrop = im
+		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop))
 		
 		if conf.save_figure:
 			save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf)
 		imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg", imCrop)
 
-		if conf.dual_dir:
-			if not isdir(conf.output_folder+"-bgRem/"+imageclass):
-				try:
-					mkdir(conf.output_folder+"-bgRem/"+imageclass)
-				except:
-					pass
-			imCrop = trim(Image.fromarray(max_feature), Image.fromarray(im))
-			imsave(conf.output_folder+"-bgRem/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg", imCrop)
 
 	elif getsize(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg")<10:
 		remove(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg")
@@ -177,30 +151,24 @@ if __name__ == "__main__":
 						help="Threshold value",
 						type=float)
 	parser.add_argument("--save_fig", help="Save Figures", type=bool)
-	parser.add_argument("--reversed", help="Run backwards?", type=bool)
+	parser.add_argument("--inc_bg", help="Include background in output files?", type=bool)
 	parser.add_argument("--input_dir", help="Input Directory")
 	parser.add_argument("--output_dir", help="Output Dataset Directory")
-	parser.add_argument("--dual_dir", help="Output to 2 directories, one with bg included, one with bg removed", type=bool)
 	
 	args = parser.parse_args()
 						
-	input_folder = "/Users/md3jr/Desktop/training_2014_09_20/"
-	output_folder = "/Volumes/users/m/md3jr/private/output-bg-1.045"
-						
-	conf = Configure(input_folder, output_folder)
+	if not args.input_dir or not args.output_dir:
+		raise ValueError("Input or Output Dir not specified!")
+				
+	conf = Configure(args.input_dir, args.output_dir)
 						
 	if args.threshold:
 		conf.threshold = args.threshold
 	if args.save_fig:
 		conf.save_figure = args.save_fig
-	if args.reversed:
-		conf.reversed = args.reversed
-	if args.input_dir:
-		conf.input_folder = args.input_dir
-	if args.output_dir:
-		conf.output_folder = args.output_dir
-	if args.dual_dir:
-		conf.dual_dir = args.dual_dir
+	if args.inc_bg:
+		conf.incBg = args.inc_bg
 
-	classes = get_classes(input_folder)
+
+	classes = get_classes(conf.input_folder)
 	get_all_images(classes, conf)
