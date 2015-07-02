@@ -52,6 +52,8 @@ def get_all_images(classes, conf):
 		result = [pool.apply_async(autoCrop, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
 		res = [p.get() for p in result]
 		pool.terminate()
+		"""for imName, img in enumerate(imgs):
+			autoCrop(imName, img, imageclass, conf)"""
 		print ""
 		print str(datetime.now())+" Done "+str(imageclass)
 	print str(datetime.now())+" completely done"
@@ -80,6 +82,7 @@ def autoCrop(imName, img, imageclass, conf):
 	if not isfile(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg"):
 		x, y, z = im.shape
 		binary_im = np.empty([x,y],np.uint8)
+		r,g,b=Image.fromarray(im).getpixel((0,0))
 		for i in range(0,x):
 			for j in range(0,y):
 				if im[i,j,1] > im[i,j,0]*conf.threshold and im[i,j,1] > im[i,j,2]*conf.threshold:
@@ -99,7 +102,36 @@ def autoCrop(imName, img, imageclass, conf):
 		else:
 			imCrop = im
 		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop))
-		
+		x,y = imCrop.size
+
+		if x*y>1750000:
+			x, y, z = im.shape
+			binary_im = np.empty([x,y],np.uint8)
+			r,g,b=Image.fromarray(im).getpixel((0,0))
+			for i in range(0,x):
+				for j in range(0,y):
+					if im[i,j,1] > im[i,j,0]*conf.threshold and im[i,j,1] > im[i,j,2]*conf.threshold:
+						im[i,j,:] = 255
+						binary_im[i,j] = 0
+					elif (im[i,j,1]>=g/1.1):
+						im[i,j,:] = 255
+						binary_im[i,j] = 0
+					else:
+						binary_im[i,j] = 1
+			labels, numL = ndimage.label(binary_im) #find regions
+			sizes = ndimage.sum(binary_im,labels,range(1,numL+1)) #find sizes of regions
+			map = np.where(sizes==sizes.max())[0] + 1 #find largest region
+			max_index = np.zeros(numL + 1, np.uint8)
+			max_index[map] = 255
+			max_feature = max_index[labels]
+
+			if conf.incBg:
+				imCrop = imOrig
+			else:
+				imCrop = im
+			imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop))
+			x,y = imCrop.size
+
 		if conf.save_figure:
 			save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf)
 		imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg", imCrop)
@@ -151,6 +183,7 @@ if __name__ == "__main__":
 						help="Threshold value",
 						type=float)
 	parser.add_argument("--save_fig", help="Save Figures", type=bool)
+	parser.add_argument("--show_fig", help="Show Figures", type=bool)
 	parser.add_argument("--inc_bg", help="Include background in output files?", type=bool)
 	parser.add_argument("--input_dir", help="Input Directory")
 	parser.add_argument("--output_dir", help="Output Dataset Directory")
@@ -166,6 +199,8 @@ if __name__ == "__main__":
 		conf.threshold = args.threshold
 	if args.save_fig:
 		conf.save_figure = args.save_fig
+	if args.show_fig:
+		conf.show_figure = args.show_fig
 	if args.inc_bg:
 		conf.incBg = args.inc_bg
 
