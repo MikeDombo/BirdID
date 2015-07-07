@@ -101,9 +101,6 @@ def autoCrop(imName, img, imageclass, conf):
 					else:
 						v = 100
 					im[i,j,k] = int(im[i,j,k]*v)
-		im = np.array(im, np.uint16)
-		for i in range(0,x):
-			for j in range(0,y):
 				if im[i,j,0]<200 and im[i,j,0]>50 and im[i,j,1]>10 and im[i,j,2]>10:
 					binary_im[i,j] = 0
 				else:
