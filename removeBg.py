@@ -11,6 +11,7 @@ from scipy import ndimage
 from datetime import datetime
 import argparse
 import sys
+from skimage import color
 
 class Configure(object):
 	def __init__(self, input_folder, output_folder, VERBOSE=False, save_figure=False, show_figure=False, threshold = 1.05, incBg = False):
@@ -52,8 +53,10 @@ def get_all_images(classes, conf):
 		result = [pool.apply_async(autoCrop, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
 		res = [p.get() for p in result]
 		pool.terminate()
-		"""for imName, img in enumerate(imgs):
-			autoCrop(imName, img, imageclass, conf)"""
+		"""
+		for imName, img in enumerate(imgs):
+			autoCrop(imName, img, imageclass, conf)
+		"""
 		print ""
 		print str(datetime.now())+" Done "+str(imageclass)
 	print str(datetime.now())+" completely done"
@@ -104,21 +107,30 @@ def autoCrop(imName, img, imageclass, conf):
 		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop))
 		x,y = imCrop.size
 
-		if x*y>1750000:
-			x, y, z = im.shape
-			binary_im = np.empty([x,y],np.uint8)
-			r,g,b=Image.fromarray(im).getpixel((0,0))
+		if x*y>1200000:
+			x, y, z = imOrig.shape
+			im2 = imOrig
+			im2 = np.array(im2, np.float64)
+			binary_im2 = np.empty([x,y], np.uint8)
 			for i in range(0,x):
 				for j in range(0,y):
-					if im[i,j,1] > im[i,j,0]*conf.threshold and im[i,j,1] > im[i,j,2]*conf.threshold:
-						im[i,j,:] = 255
-						binary_im[i,j] = 0
-					elif (im[i,j,1]>=g/1.1):
-						im[i,j,:] = 255
-						binary_im[i,j] = 0
+					for k in range(0,z):
+						im2[i,j,k] = im2[i,j,k]/255.0
+			im2 = color.rgb2hsv(im2)
+			for i in range(0,x):
+				for j in range(0,y):
+					for k in range(0,z):
+						if k==0:
+							v = 360
+						else:
+							v = 100
+						im2[i,j,k] = int(im2[i,j,k]*v)
+					if im2[i,j,0]<200 and im2[i,j,0]>60 and im2[i,j,1]>10 and im2[i,j,2]>10:
+						binary_im2[i,j] = 0
 					else:
-						binary_im[i,j] = 1
-			labels, numL = ndimage.label(binary_im) #find regions
+						binary_im2[i,j] = 1
+
+			labels, numL = ndimage.label(binary_im2) #find regions
 			sizes = ndimage.sum(binary_im,labels,range(1,numL+1)) #find sizes of regions
 			map = np.where(sizes==sizes.max())[0] + 1 #find largest region
 			max_index = np.zeros(numL + 1, np.uint8)
@@ -130,7 +142,7 @@ def autoCrop(imName, img, imageclass, conf):
 			else:
 				imCrop = im
 			imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop))
-			x,y = imCrop.size
+			binary_im = binary_im2
 
 		if conf.save_figure:
 			save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf)
