@@ -250,6 +250,7 @@ def trainVocab(selTrain, all_images, conf):
 	pool = multiprocessing.Pool(processes=conf.numCore)
 	results = [pool.apply_async(getPhowFeaturesMulti, args=(imread(all_images[ii]), conf.phowOpts, i)) for i, ii in enumerate(selTrainFeats)]
 	descrs = [p.get() for p in results]
+	pool.terminate()
 	sorted(descrs)
 	for descr in descrs:
 		descr.pop(0)
@@ -281,6 +282,7 @@ def computeHistograms(all_images, selTrain, selTest, model, conf):
 	pool = multiprocessing.Pool(processes=conf.numCore)
 	results = [pool.apply_async(getImageDescriptor, args=(model, imread(imagefname), ii)) for ii, imagefname in enumerate(imgs)]
 	hists = [p.get() for p in results]
+	pool.terminate()
 	sorted(hists)
 	for hist in hists:
 		hist.pop(0)
