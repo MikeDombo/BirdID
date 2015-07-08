@@ -4,7 +4,7 @@ from os import mkdir, remove
 from skimage import transform, util
 import skimage.io as io
 from scipy import ndimage
-from scipy.misc import imread, imsave, imresize
+from scipy.misc import imread, imsave
 from glob import glob
 import multiprocessing
 from PIL import Image
@@ -59,7 +59,7 @@ def rotate(imName, img, imageclass, conf):
 			pass
 	while i<360:
 		if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_rot_"+str(i)+".jpg"):
-			imsave(join(conf.output_folder,imageclass)+"/"+str(imName)+"_rot_"+str(i)+".jpg",imresize(transform.rotate(im, i, resize=False), (480, 640)))
+			imsave(join(conf.output_folder,imageclass)+"/"+str(imName)+"_rot_"+str(i)+".jpg",transform.rotate(im, i, resize=False))
 		elif conf.VERBOSE:
 			print "skipped #"+str(imName)+" in "+str(imageclass)
 		if i == 90:
@@ -70,7 +70,7 @@ def rotate(imName, img, imageclass, conf):
 
 def zoom(imName, img, imageclass, conf):
 	imName = imName+1
-	i=1.75
+	i=1.25
 	im = Image.open(img)
 	if not isdir(conf.output_folder+imageclass):
 		try:
@@ -80,15 +80,14 @@ def zoom(imName, img, imageclass, conf):
 	if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_zoom_"+str(i)+".jpg"):
 		x, y = im.size
 		ims = im.crop((int((x-x/i)/2), int((y-y/i)/2), int((x+(x/i))/2), int((y+(y/i))/2)))
-		ims = imresize(ims, (480,640))
 		imsave(join(conf.output_folder,imageclass)+"/"+str(imName)+"_zoom_"+str(i)+".jpg",ims)
 	elif conf.VERBOSE:
 		print "skipped #"+str(imName)+" in "+str(imageclass)
 	return str(imName)
 
 if __name__ == "__main__":
-	input_folder = "../retinex/"
-	output_folder = "../retinex-zoom/"
+	input_folder = "../output-nobg-1.05/"
+	output_folder = "../augmented/"
 	conf = Configure(input_folder, output_folder, VERBOSE=False)
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
