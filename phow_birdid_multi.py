@@ -370,7 +370,7 @@ if __name__ == '__main__':
 	# Handle command-line arguments #
 	#################################
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--sample_seed_arg", 
+	parser.add_argument("--sample_seed",
 		help="Seed for choosing training sample", type=int)
 
 	parser.add_argument("--identifier",
@@ -406,6 +406,10 @@ if __name__ == '__main__':
 	parser.add_argument("--im_size",
 					help="Image Height",
 					type=int)
+					
+	parser.add_argument("--show_fig",
+						help="Show Figure of Misidentified birds",
+						type=bool)
 		
 	parser.add_argument("--num_words",
 						help="Number of centroids found for k-means clustering",
@@ -417,8 +421,8 @@ if __name__ == '__main__':
 	
 	args = parser.parse_args()
 
-	if args.sample_seed_arg:
-		SAMPLE_SEED = args.sample_seed_arg
+	if args.sample_seed:
+		SAMPLE_SEED = args.sample_seed
 		if VERBOSE: print ("SAMPLE_SEED = " + str(SAMPLE_SEED))
 		
 	seed(SAMPLE_SEED)
@@ -469,6 +473,9 @@ if __name__ == '__main__':
 
 	if args.num_test or args.num_train:
 		conf.imagesperclass = conf.numTest+conf.numTrain
+
+	if args.show_fig:
+		conf.showFig = args.show_fig
 
 	if args.num_features:
 		conf.numbers_of_features_for_histogram = args.num_features
@@ -572,7 +579,8 @@ if __name__ == '__main__':
 	for i in range(0, conf.numTest*conf.numClasses):
 		if(true_classes[i] != predicted_classes[i]):
 			misid.append([all_images[selTest[i]],{'trueclass':true_classes[i],'predictedclass':predicted_classes[i]}])
-	showFig(misid, conf)
+	if conf.showFig:
+		showFig(misid, conf)
 
 	##################
 	# Output Results #
