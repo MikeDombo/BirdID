@@ -84,7 +84,6 @@ How To Use:
 - "show_fig" to show the autocrop and background removal figure
 - "inc_bg" to include the background in the output
 - "threshold" to set the background removal threshold
-    
 2. Run phow_birdid_multi.py with "python phow_birdid_multi.py --prefix 'PREFIX' --image_dir INPUT_FOLDER"
 
 - optional arguments include "show_fig" to show the figure of all misidentified birds
