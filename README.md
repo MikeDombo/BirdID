@@ -76,6 +76,7 @@ a new dataset.
 
 
 How To Use:
+-----------
 
 1 Run autocrop.py with "python autocrop.py --input_dir INPUT_FOLDER --output_dir OUTPUT_FOLDER"
 - optional arguments include "save_fig" to save the autocrop and background removal figure
@@ -95,6 +96,7 @@ How To Use:
 - "num_features" to set the number of histogram features extracted from each image
 
 Requisite:
+----------
 
 - [VLFeat with a Python wrapper][2]
 - [scikit-learn][5] to replace VLFeat ML functions that don't have a Python wrapper yet. 
