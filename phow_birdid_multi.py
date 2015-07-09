@@ -317,7 +317,7 @@ def saveCSV(file, accuracy):
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
 
-	ftp = ftplib.FTP('dombrowskivpn.mynetgear.com', "lbarnett-students", 'lbarnett-studentaccess')
+	"""ftp = ftplib.FTP()#enter server information here
 	ftp.set_pasv(False)
 	with open("temp.xlsx", 'wb') as f:
 		def callback(data):
@@ -329,7 +329,7 @@ def saveCSV(file, accuracy):
 	wb.save("temp.xlsx")
 	ftp.storbinary('STOR '+str(file), open('temp.xlsx','r'))
 	ftp.close()
-	remove('temp.xlsx')
+	remove('temp.xlsx')"""
 
 def showFig(images, conf):
 	axes = {}
