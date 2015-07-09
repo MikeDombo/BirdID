@@ -76,12 +76,13 @@ a new dataset.
 
 
 How To Use:
-    Run autocrop.py with "python autocrop.py --input_dir INPUT_FOLDER --output_dir OUTPUT_FOLDER"
+[1]Run autocrop.py with "python autocrop.py --input_dir INPUT_FOLDER --output_dir OUTPUT_FOLDER"
 - optional arguments include "save_fig" to save the autocrop and background removal figure
 - "show_fig" to show the autocrop and background removal figure
 - "inc_bg" to include the background in the output
 - "threshold" to set the background removal threshold
-    Run phow_birdid_multi.py with "python phow_birdid_multi.py --prefix 'PREFIX' --image_dir INPUT_FOLDER"
+    
+[2]Run phow_birdid_multi.py with "python phow_birdid_multi.py --prefix 'PREFIX' --image_dir INPUT_FOLDER"
 - optional arguments include "show_fig" to show the figure of all misidentified birds
 - "dsift_size" to set the dsift sizes
 - "num_classes" to set the number of images classes
