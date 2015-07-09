@@ -51,6 +51,7 @@ class Configuration(object):
 		# class
 		self.numTrain = 70
 		self.numTest = 30
+		
 		self.numCore = multiprocessing.cpu_count()
 		self.imagesperclass = self.numTrain + self.numTest
 		self.numClasses = 10
@@ -58,7 +59,7 @@ class Configuration(object):
 		self.numSpatialX = [2, 4]
 		self.numSpatialY = [2, 4]
 		self.quantizer = 'vq'  # kdtree from the .m version not implemented
-		self.svm = SVMParameters(C=10)
+		self.svmC = 15
 		self.phowOpts = PHOWOptions(Verbose=False, Sizes=[2, 4, 6, 8], Step=3)
 		self.tinyProblem = TINYPROBLEM
 		self.prefix = prefix
@@ -97,7 +98,7 @@ def ensure_type_array(data):
 	return data
 
 
-def standardizeImage(im): #Scales image down to 640x480
+def standardizeImage(im): #Scales image down to 640x480 or whatever the correct aspect ratio is with conf.imSize as the height
 	im = array(im, 'float32') 
 	if im.shape[0] > conf.imSize:
 		resize_factor = float(conf.imSize) / im.shape[0]	 # don't remove trailing .0 to avoid integer devision
@@ -170,11 +171,6 @@ class Model(object):
 		self.numSpatialY = conf.numSpatialY
 		self.quantizer = conf.quantizer
 		self.vocab = vocab
-
-
-class SVMParameters(object):
-	def __init__(self, C):
-		self.C = C
 
 
 class PHOWOptions(object):
@@ -316,8 +312,8 @@ def saveCSV(file, accuracy):
 		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height', 'Number of K-Means Centroids', 'Number of Histogram Features'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
-
-	"""ftp = ftplib.FTP()#enter server information here
+	"""
+	ftp = ftplib.FTP()#enter server information here
 	ftp.set_pasv(False)
 	with open("temp.xlsx", 'wb') as f:
 		def callback(data):
@@ -421,6 +417,10 @@ if __name__ == '__main__':
 						help="Number of histogram features",
 						type=int)
 	
+	parser.add_argument("--svm_c",
+						help="Number of SVMs competing",
+						type=int)
+
 	args = parser.parse_args()
 
 	if args.sample_seed:
@@ -483,6 +483,10 @@ if __name__ == '__main__':
 		conf.numbers_of_features_for_histogram = args.num_features
 		if VERBOSE: print ("num_features = " + str(conf.numbers_of_features_for_histogram))
 
+	if args.svm_c:
+		conf.svmC = args.svm_c
+		if VERBOSE: print ("svm_c = " + str(args.svm_c))
+
 	if VERBOSE: print (str(datetime.now()) + ' finished conf')
 
 	classes = get_classes(conf.calDir, conf.numClasses) #get classes from data folder
@@ -543,7 +547,7 @@ if __name__ == '__main__':
 			verbose = True
 		else:
 			verbose = False
-		clf = svm.LinearSVC(C=conf.svm.C)
+		clf = svm.LinearSVC(C=conf.svmC)
 		if VERBOSE: print (clf)
 		clf.fit(train_data, all_images_class_labels[selTrain])
 		with open(conf.modelPath, 'wb') as fp:
@@ -576,18 +580,18 @@ if __name__ == '__main__':
 			predicted_classes = load(fp)
 			true_classes = load(fp)
 			accuracy = load(fp)
-	#Generate Figure of misidentified images
-	misid = []
-	for i in range(0, conf.numTest*conf.numClasses):
-		if(true_classes[i] != predicted_classes[i]):
-			misid.append([all_images[selTest[i]],{'trueclass':true_classes[i],'predictedclass':predicted_classes[i]}])
-	if conf.showFig:
-		showFig(misid, conf)
 
 	##################
 	# Output Results #
 	##################
-	print ("accuracy =" + str(accuracy))
-	print (cm)
-	print (str(datetime.now()) + ' run complete with seed = ' + str( SAMPLE_SEED ))
+	print "accuracy =" + str(accuracy)
+	print cm
+	print str(datetime.now()) + ' run complete with seed = ' + str(SAMPLE_SEED)
+	if conf.showFig:
+		#Generate Figure of misidentified images
+		misid = []
+		for i in range(0, conf.numTest*conf.numClasses):
+			if(true_classes[i] != predicted_classes[i]):
+				misid.append([all_images[selTest[i]],{'trueclass':true_classes[i],'predictedclass':predicted_classes[i]}])
+		showFig(misid, conf)
 	saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
