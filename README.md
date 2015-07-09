@@ -76,22 +76,22 @@ a new dataset.
 
 
 How To Use:
-[1]Run autocrop.py with "python autocrop.py --input_dir INPUT_FOLDER --output_dir OUTPUT_FOLDER"
+1 Run autocrop.py with "python autocrop.py --input_dir INPUT_FOLDER --output_dir OUTPUT_FOLDER"
 - optional arguments include "save_fig" to save the autocrop and background removal figure
 - "show_fig" to show the autocrop and background removal figure
 - "inc_bg" to include the background in the output
 - "threshold" to set the background removal threshold
     
-[2]Run phow_birdid_multi.py with "python phow_birdid_multi.py --prefix 'PREFIX' --image_dir INPUT_FOLDER"
-- optional arguments include "show_fig" to show the figure of all misidentified birds
-- "dsift_size" to set the dsift sizes
-- "num_classes" to set the number of images classes
-- "num_train" to set the number of training images
-- "num_test" to set the number of testing images
-- "num_core" to manually set the number of cores to run on
-- "im_size" to manually set the image height in pixels
-- "num_words" to set the number of centroids for k-means clustering
-- "num_features" to set the number of histogram features extracted from each image
+2 Run phow_birdid_multi.py with "python phow_birdid_multi.py --prefix 'PREFIX' --image_dir INPUT_FOLDER"
+	- optional arguments include "show_fig" to show the figure of all misidentified birds
+	- "dsift_size" to set the dsift sizes
+	- "num_classes" to set the number of images classes
+	- "num_train" to set the number of training images
+	- "num_test" to set the number of testing images
+	- "num_core" to manually set the number of cores to run on
+	- "im_size" to manually set the image height in pixels
+	- "num_words" to set the number of centroids for k-means clustering
+	- "num_features" to set the number of histogram features extracted from each image
 
 Requisite:
 
