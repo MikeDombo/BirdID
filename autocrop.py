@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from os.path import isdir, basename, splitext, join, isfile, getsize
+from os.path import isdir, basename, splitext, join, isfile
 from os import mkdir, remove, listdir
 from glob import glob
 import multiprocessing
@@ -79,8 +79,12 @@ def autoCrop(imName, img, imageclass, conf): #background remove and then crop
 			pass
 	if imageclass == "EmptyFeeder":
 		imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop_NoMod.jpg", imOrig)
+		if conf.augment:
+			for rot in [-35,-20, 20, 35]:
+				imCropped = interpolation.rotate(imOrig, rot, reshape=False)
+				imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_rot"+str(rot)+".jpg", imCropped)
 		return "skipping"
-	if not isfile(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg"):
+	if not isfile(conf.output_folder+"/"+imageclass+"/"+str(imName)+".jpg"):
 		x, y, z = im.shape
 		binary_im = np.empty([x,y],np.uint8)
 		r,g,b=Image.fromarray(im).getpixel((0,0))
@@ -151,7 +155,7 @@ def autoCrop(imName, img, imageclass, conf): #background remove and then crop
 				imCrop = imOrig
 			else:
 				imCrop = im
-			for rot in [-10,-5, 5, 10]:
+			for rot in [-35,-20, 20, 35]:
 				imCropped = trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False)))
 				imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_rot"+str(rot)+".jpg", imCropped)
 
