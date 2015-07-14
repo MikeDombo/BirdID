@@ -178,7 +178,7 @@ def getImageDescriptor(model, im, idx): #gets histograms
 
 	hist = hstack(hist)
 	hist = array(hist, 'float32') / sum(hist)
-	numTot = float(conf.numClasses*(conf.numTrain+conf.numTest)*len(conf.rotation))
+	numTot = float(conf.numClasses*(conf.numTrain+conf.numTest)*(len(conf.rotation)+1))
 	sys.stdout.write ("\r"+str(datetime.now())+" Histograms Calculated: "+str(((idx+1)/numTot)*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
 	return [idx, hist]
@@ -249,14 +249,9 @@ def create_split(all_images, images_per_class, conf): #split files between train
 		if (not exists(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))) | OVERWRITE:
 			#"""
 			pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-			result = [pool.apply_async(autoCrop, args=(img, conf)) for img in train+test]
+			result = [pool.apply_async(autoCrop, args=(i, img, conf)) for i, img in enumerate(train+test)]
 			res = [p.get() for p in result]
 			pool.terminate()
-			"""
-			res = []
-			for img in train+test:
-				res.append(autoCrop(img, conf))
-			#"""
 			for r in res:
 				conf.images[r[0]] = r[1]
 			print str(datetime.now())+" Done crop"
@@ -281,7 +276,7 @@ def trim(im, color): #crop based on the binary image to zoom into the largest ar
     if bbox:
         return color.crop(bbox) #actually returns the cropped image color, not im
 
-def autoCrop(img, conf): #background remove and then crop
+def autoCrop(imName, img, conf): #background remove and then crop
 	im = imread(img)
 	imOrig = imread(img)
 	x, y, z = im.shape
@@ -352,6 +347,9 @@ def autoCrop(img, conf): #background remove and then crop
 			imCrop = im
 		for rot in conf.rotation:
 			imAug.append(np.array(trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False))), dtype=np.uint8))
+	
+	sys.stdout.write ("\r"+str(datetime.now())+" AutoCropped Images: "+str((imName/float(conf.numTrain*conf.numTest*conf.numClasses))*100.0)[:5]+"%") #make progress percentage
+	sys.stdout.flush()
 	return [img,imAug]
 
 def trainVocab(selTrain, all_images, conf):
@@ -650,11 +648,6 @@ if __name__ == '__main__':
 			for x in range(0,len(conf.rotation)+1):
 				test.append(i)
 		selTest = test
-		labels = []
-		for i in all_images_class_labels:
-			for x in range(0,len(conf.rotation)+1):
-				labels.append(i)
-		all_images_class_labels = labels
 
 	#######################
 	# Compute feature map #
