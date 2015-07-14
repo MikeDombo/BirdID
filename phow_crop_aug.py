@@ -36,9 +36,8 @@ IDENTIFIER = '2014-04-17-UR'
 PREFIX = 'baseline'
 
 FEATUREMAP = True
-OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
+OVERWRITE = False  # DON'T load mat files generated with a different seed!!!
 SAMPLE_SEED = 1963543398
-TINYPROBLEM = False
 VERBOSE = True	# set to 'SVM' if you want to get the svm output
 
 class Configuration(object):
@@ -65,7 +64,6 @@ class Configuration(object):
 		self.quantizer = 'vq'  # kdtree from the .m version not implemented
 		self.svmC = 15
 		self.phowOpts = PHOWOptions(Verbose=False, Sizes=[2, 4, 6, 8], Step=3)
-		self.tinyProblem = TINYPROBLEM
 		self.prefix = prefix
 		self.verbose = True
 		self.extensions = [".jpg", ".jpeg", ".bmp", ".png", ".pgm", ".tif", ".tiff"]
@@ -80,6 +78,7 @@ class Configuration(object):
 		self.augment = True
 		self.threshold = 1.05
 		self.images = {}
+		self.rotation = [-35,-20, 20, 35]
 		
 		self.vocabPath = join(self.dataDir, self.prefix + '-' + identifier + '-vocab.py.mat')
 		self.histPath = join(self.dataDir, self.prefix + '-'  + identifier + '-hists.py.mat')
@@ -97,6 +96,22 @@ class Configuration(object):
 
 	def setClasses(self, classes):
 		self.classes = classes #Save class names for later use by birdid_classifier
+
+class Model(object):
+	def __init__(self, classes, conf, vocab=None):
+		self.classes = classes
+		self.phowOpts = conf.phowOpts
+		self.numSpatialX = conf.numSpatialX
+		self.numSpatialY = conf.numSpatialY
+		self.quantizer = conf.quantizer
+		self.vocab = vocab
+
+
+class PHOWOptions(object):
+	def __init__(self, Verbose, Sizes, Step):
+		self.Verbose = Verbose
+		self.Sizes = Sizes
+		self.Step = Step
 
 def ensure_type_array(data):
 	if (type(data) is not ndarray):
@@ -163,28 +178,10 @@ def getImageDescriptor(model, im, idx): #gets histograms
 
 	hist = hstack(hist)
 	hist = array(hist, 'float32') / sum(hist)
-	numTot = float(conf.numClasses*(conf.numTrain+conf.numTest))
+	numTot = float(conf.numClasses*(conf.numTrain+conf.numTest)*len(conf.rotation))
 	sys.stdout.write ("\r"+str(datetime.now())+" Histograms Calculated: "+str(((idx+1)/numTot)*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
 	return [idx, hist]
-
-
-class Model(object):
-	def __init__(self, classes, conf, vocab=None):
-		self.classes = classes
-		self.phowOpts = conf.phowOpts
-		self.numSpatialX = conf.numSpatialX
-		self.numSpatialY = conf.numSpatialY
-		self.quantizer = conf.quantizer
-		self.vocab = vocab
-
-
-class PHOWOptions(object):
-	def __init__(self, Verbose, Sizes, Step):
-		self.Verbose = Verbose
-		self.Sizes = Sizes
-		self.Step = Step
-
 
 def get_classes(datasetpath, numClasses): #find classes in the data folder
 	classes_paths = [files
@@ -248,20 +245,26 @@ def create_split(all_images, images_per_class, conf): #split files between train
 		selTest[i] = all_images.index(ii)
 
 	#crop all images
-	if conf.augment:
+	if conf.crop:
 		if (not exists(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))) | OVERWRITE:
+			#"""
 			pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-			result = [pool.apply_async(autoCrop, args=(img, conf)) for img in train]
+			result = [pool.apply_async(autoCrop, args=(img, conf)) for img in train+test]
 			res = [p.get() for p in result]
 			pool.terminate()
-			pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-			result = [pool.apply_async(autoCrop, args=(img, conf)) for img in test]
-			res = [p.get() for p in result]
-			pool.terminate()
-			savemat(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'), {'images': conf.images})
+			"""
+			res = []
+			for img in train+test:
+				res.append(autoCrop(img, conf))
+			#"""
+			for r in res:
+				conf.images[r[0]] = r[1]
+			print str(datetime.now())+" Done crop"
+
+			savemat(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'), conf.images)
 		else:
-			if VERBOSE: print ("using old cropping")
-			conf.images = loadmat(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))['images']
+			print ("using old cropping")
+			conf.images = loadmat(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))
 	else:
 		for img in train:
 			conf.images[img] = [imread(img)]
@@ -340,17 +343,16 @@ def autoCrop(img, conf): #background remove and then crop
 			imCrop = im
 		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop)) #crop image
 
-	imAug = []
-	imAug.append(imCrop)
+	imAug = [np.array(imCrop, dtype=np.uint8)]
 
 	if conf.augment:
 		if not conf.removeBg: #check if background should be included or removed in final output
 			imCrop = imOrig
 		else:
 			imCrop = im
-		for rot in [-35,-20, 20, 35]:
-			imAug.append(trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False))))
-	conf.images[img] = imAug
+		for rot in conf.rotation:
+			imAug.append(np.array(trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False))), dtype=np.uint8))
+	return [img,imAug]
 
 def trainVocab(selTrain, all_images, conf):
 	selTrainFeats = sample(selTrain, conf.images_for_histogram)
@@ -381,15 +383,21 @@ def trainVocab(selTrain, all_images, conf):
 						  method='elkan')
 	return vocab
 
-def computeHistograms(all_images, selTrain, selTest, model, conf):
-	images = numpy.append(selTrain,selTest).tolist()
+def computeHistograms(selTrain, selTest, all_images, model, conf):
 	imgs = []
-	for i in images:
-		imgs.append(conf.images[all_images[i]])
+	images = np.append(selTrain, selTest)
+	imageFiles = []
+	for x in range(0,len(images)):
+		imageFiles.append("hi")
+	for i, ii in enumerate(images):
+			imageFiles[i] = str(all_images[ii])
+	for files in imageFiles:
+		for i in conf.images[files]:
+			imgs.append(i)
 	hists = []
 	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
-	results = [pool.apply_async(getImageDescriptor, args=(model, im, ii)) for ii, imagefname in enumerate(imgs)]
+	results = [pool.apply_async(getImageDescriptor, args=(model, im, ii)) for ii, im in enumerate(imgs)]
 	hists = [p.get() for p in results]
 	pool.terminate()
 	sorted(hists)
@@ -469,7 +477,6 @@ def showFig(images, conf):
 	
 	fig.set_tight_layout(True)
 	plt.show()
-	#fig.savefig(conf.output_folder+"/figures/"+imageclass+"/figure_"+str(imName)+".png", dpi=75)
 
 
 ################
@@ -623,31 +630,30 @@ if __name__ == '__main__':
 	##############################
 	# Compute spatial histograms #
 	##############################
-	if conf.augment:
-		train = []
-		for i in selTrain:
-			for x in range(0,5):
-				train.append(i)
-		selTrain = train
-		print str(train)
-		test = []
-		for i in selTest:
-			for x in range(0,5):
-				test.append(i)
-		selTest = test
-		labels = []
-		for i in all_images_class_labels:
-			for x in range(0,5):
-				labels.append(i)
-		all_images_class_labels = labels
 	if VERBOSE: print (str(datetime.now()) + ' start computing hists')
 	if (not exists(conf.histPath)) | OVERWRITE:
-		hists = computeHistograms(all_images, selTrain, selTest, model, conf)
+		hists = computeHistograms(selTrain, selTest, all_images, model, conf)
 		savemat(conf.histPath, {'hists': hists})
 	else:
 		if VERBOSE: print ("using old hists from " + conf.histPath)
 		hists = loadmat(conf.histPath)['hists']
 
+	if conf.augment:
+		train = []
+		for i in selTrain:
+			for x in range(0,len(conf.rotation)):
+				train.append(i)
+		selTrain = train
+		test = []
+		for i in selTest:
+			for x in range(0,len(conf.rotation)):
+				test.append(i)
+		selTest = test
+		labels = []
+		for i in all_images_class_labels:
+			for x in range(0,len(conf.rotation)):
+				labels.append(i)
+		all_images_class_labels = labels
 
 	#######################
 	# Compute feature map #
@@ -655,13 +661,19 @@ if __name__ == '__main__':
 	if VERBOSE: print (str(datetime.now()) + ' start computing feature map')
 	transformer = AdditiveChi2Sampler()
 	histst = transformer.fit_transform(hists)
-	train_data = histst[0:conf.numTrain*conf.numClasses]
-	test_data = histst[conf.numTrain*conf.numClasses:]
+	train_data = histst[0:len(selTrain)]
+	test_data = histst[len(selTrain):]
 
 	
 	#############
 	# Train SVM #
 	#############
+	labelsTrain = []
+	for t in selTrain:
+		labelsTrain.append(all_images_class_labels[t])
+	true_classes = []
+	for t in selTest:
+		true_classes.append(all_images_class_labels[t])
 	if (not exists(conf.modelPath)) | OVERWRITE:
 		if VERBOSE: print (str(datetime.now()) + ' training liblinear svm')
 		if VERBOSE == 'SVM':
@@ -670,7 +682,7 @@ if __name__ == '__main__':
 			verbose = False
 		clf = svm.LinearSVC(C=conf.svmC)
 		if VERBOSE: print (clf)
-		clf.fit(train_data, all_images_class_labels[selTrain])
+		clf.fit(train_data, labelsTrain)
 		with open(conf.modelPath, 'wb') as fp:
 			dump(clf, fp)
 	else:
@@ -684,7 +696,6 @@ if __name__ == '__main__':
 	if (not exists(conf.resultPath)) | OVERWRITE:
 		if VERBOSE: print (str(datetime.now()) + ' testing svm')
 		predicted_classes = clf.predict(test_data)
-		true_classes = all_images_class_labels[selTest]
 		accuracy = accuracy_score(true_classes, predicted_classes)
 		cm = confusion_matrix(true_classes, predicted_classes)
 
@@ -715,4 +726,4 @@ if __name__ == '__main__':
 			if(true_classes[i] != predicted_classes[i]):
 				misid.append([all_images[selTest[i]],{'trueclass':true_classes[i],'predictedclass':predicted_classes[i]}])
 		showFig(misid, conf)
-	saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
+	#saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
