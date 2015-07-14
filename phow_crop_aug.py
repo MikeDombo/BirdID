@@ -9,7 +9,7 @@ from os import makedirs, remove, mkdir, listdir
 from glob import glob
 from random import sample, seed
 from scipy import ones, mod, arange, array, where, ndarray, hstack, linspace, histogram, vstack, amax, amin
-from scipy.misc import imread, imresize
+from scipy.misc import imread, imresize, imsave
 from scipy.cluster.vq import vq
 import numpy
 import numpy as np
@@ -31,6 +31,7 @@ from skimage import color
 from PIL import Image, ImageChops
 from scipy import ndimage
 from scipy.ndimage import interpolation
+import gc
 
 IDENTIFIER = '2014-04-17-UR'
 PREFIX = 'baseline'
@@ -247,9 +248,9 @@ def create_split(all_images, images_per_class, conf): #split files between train
 	#crop all images
 	if conf.crop:
 		if (not exists(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))) | OVERWRITE:
-			#"""
+			gc.enable()
 			pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-			result = [pool.apply_async(autoCrop, args=(i, img, conf)) for i, img in enumerate(train+test)]
+			result = [pool.apply_async(autoCrop, args=(i, img)) for i, img in enumerate(train+test)]
 			res = [p.get() for p in result]
 			pool.terminate()
 			for r in res:
@@ -276,9 +277,9 @@ def trim(im, color): #crop based on the binary image to zoom into the largest ar
     if bbox:
         return color.crop(bbox) #actually returns the cropped image color, not im
 
-def autoCrop(imName, img, conf): #background remove and then crop
+def autoCrop(imName, img): #background remove and then crop
 	im = imread(img)
-	imOrig = imread(img)
+	imOrig = im
 	x, y, z = im.shape
 	binary_im = np.empty([x,y],np.uint8)
 	r,g,b=Image.fromarray(im).getpixel((0,0))
@@ -338,7 +339,9 @@ def autoCrop(imName, img, conf): #background remove and then crop
 			imCrop = im
 		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop)) #crop image
 
-	imAug = [np.array(imCrop, dtype=np.uint8)]
+	imCrop = standardizeImage(np.array(imCrop, dtype=np.uint8))
+	imsave(conf.dataDir+"/images/"+str(imName)+"_0"+".jpg", imCrop)
+	imAug = [conf.dataDir+"/images/"+str(imName)+"_0.jpg"]
 
 	if conf.augment:
 		if not conf.removeBg: #check if background should be included or removed in final output
@@ -346,11 +349,16 @@ def autoCrop(imName, img, conf): #background remove and then crop
 		else:
 			imCrop = im
 		for rot in conf.rotation:
-			imAug.append(np.array(trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False))), dtype=np.uint8))
+			rotated = standardizeImage(np.array(trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False)))))
+			imsave(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg", rotated)
+			imAug.append(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg")
 	
-	sys.stdout.write ("\r"+str(datetime.now())+" AutoCropped Images: "+str((imName/float(conf.numTrain*conf.numTest*conf.numClasses))*100.0)[:5]+"%") #make progress percentage
+	sys.stdout.write("\r"+str(datetime.now())+" AutoCropped Images: "+str((imName/float(conf.numTrain*conf.numTest*conf.numClasses))*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
-	return [img,imAug]
+	im = None
+	imOrig = None
+	gc.collect()
+	return [img, imAug]
 
 def trainVocab(selTrain, all_images, conf):
 	selTrainFeats = sample(selTrain, conf.images_for_histogram)
@@ -396,7 +404,7 @@ def computeHistograms(selTrain, selTest, all_images, model, conf):
 	hists = []
 	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
-	results = [pool.apply_async(getImageDescriptor, args=(model, im, ii)) for ii, im in enumerate(imgs)]
+	results = [pool.apply_async(getImageDescriptor, args=(model, imread(im), ii)) for ii, im in enumerate(imgs)]
 	hists = [p.get() for p in results]
 	pool.terminate()
 	sorted(hists)
