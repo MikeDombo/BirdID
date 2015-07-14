@@ -139,7 +139,7 @@ def getPhowFeatures(imagedata, phowOpts): #extracts features from image
 	frames, descrs = vl_phow(im, verbose=phowOpts.Verbose, sizes=phowOpts.Sizes, step=phowOpts.Step)
 	return frames, descrs
 
-def getPhowFeaturesMulti(imagedata, phowOpts, idx, conf): #used in multiprocessing for training vocab
+def getPhowFeaturesMulti(imagedata, phowOpts, idx): #used in multiprocessing for training vocab
 	return [idx, getPhowFeatures(imagedata, phowOpts)[1]]
 
 
@@ -359,7 +359,7 @@ def trainVocab(selTrain, all_images, conf):
 	descrs = []
 	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
-	results = [pool.apply_async(getPhowFeaturesMulti, args=(imread(all_images[ii]), conf.phowOpts, i, conf)) for i, ii in enumerate(selTrainFeats)]
+	results = [pool.apply_async(getPhowFeaturesMulti, args=(imread(all_images[ii]), conf.phowOpts, i)) for i, ii in enumerate(selTrainFeats)]
 	descrs = [p.get() for p in results]
 	pool.terminate()
 	sorted(descrs)
@@ -393,7 +393,8 @@ def computeHistograms(selTrain, selTest, all_images, model, conf):
 			imageFiles[i] = str(all_images[ii])
 	for files in imageFiles:
 		for i in conf.images[files]:
-			imgs.append(i)
+			for x in i:
+				imgs.append(x)
 	hists = []
 	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
@@ -641,17 +642,17 @@ if __name__ == '__main__':
 	if conf.augment:
 		train = []
 		for i in selTrain:
-			for x in range(0,len(conf.rotation)):
+			for x in range(0,len(conf.rotation)+1):
 				train.append(i)
 		selTrain = train
 		test = []
 		for i in selTest:
-			for x in range(0,len(conf.rotation)):
+			for x in range(0,len(conf.rotation)+1):
 				test.append(i)
 		selTest = test
 		labels = []
 		for i in all_images_class_labels:
-			for x in range(0,len(conf.rotation)):
+			for x in range(0,len(conf.rotation)+1):
 				labels.append(i)
 		all_images_class_labels = labels
 
@@ -663,7 +664,6 @@ if __name__ == '__main__':
 	histst = transformer.fit_transform(hists)
 	train_data = histst[0:len(selTrain)]
 	test_data = histst[len(selTrain):]
-
 	
 	#############
 	# Train SVM #
@@ -700,14 +700,14 @@ if __name__ == '__main__':
 		cm = confusion_matrix(true_classes, predicted_classes)
 
 		with open(conf.resultPath, 'wb') as fp:
-			dump(conf, fp)
+			#dump(conf, fp)
 			dump(cm, fp)
 			dump(predicted_classes, fp)
 			dump(true_classes, fp)
 			dump(accuracy, fp)
 	else:
 		with open(conf.resultPath, 'rb') as fp:
-			conf = load(fp)
+			#conf = load(fp)
 			cm = load(fp)
 			predicted_classes = load(fp)
 			true_classes = load(fp)
