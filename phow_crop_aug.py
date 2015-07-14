@@ -31,7 +31,6 @@ from skimage import color
 from PIL import Image, ImageChops
 from scipy import ndimage
 from scipy.ndimage import interpolation
-import gc
 
 IDENTIFIER = '2014-04-17-UR'
 PREFIX = 'baseline'
@@ -107,7 +106,6 @@ class Model(object):
 		self.quantizer = conf.quantizer
 		self.vocab = vocab
 
-
 class PHOWOptions(object):
 	def __init__(self, Verbose, Sizes, Step):
 		self.Verbose = Verbose
@@ -122,7 +120,6 @@ def ensure_type_array(data):
 			data = array([data])
 	return data
 
-
 def standardizeImage(im): #Scales image down to 640x480 or whatever the correct aspect ratio is with conf.imSize as the height
 	im = array(im, 'float32') 
 	if im.shape[0] > conf.imSize:
@@ -134,7 +131,6 @@ def standardizeImage(im): #Scales image down to 640x480 or whatever the correct 
 	assert((amin(im) >= 0.00))
 	return im
 
-
 def getPhowFeatures(imagedata, phowOpts): #extracts features from image
 	im = standardizeImage(imagedata) #scale image to 640x480
 	frames, descrs = vl_phow(im, verbose=phowOpts.Verbose, sizes=phowOpts.Sizes, step=phowOpts.Step)
@@ -142,7 +138,6 @@ def getPhowFeatures(imagedata, phowOpts): #extracts features from image
 
 def getPhowFeaturesMulti(imagedata, phowOpts, idx): #used in multiprocessing for training vocab
 	return [idx, getPhowFeatures(imagedata, phowOpts)[1]]
-
 
 def getImageDescriptor(model, im, idx): #gets histograms
 	im = standardizeImage(im) #scale image to 640x480
@@ -197,14 +192,12 @@ def get_classes(datasetpath, numClasses): #find classes in the data folder
 	classes = classes[:numClasses]
 	return classes
 
-
 def get_imgfiles(path, extensions): #get images from 1 class folder
 	all_files = []
 	all_files.extend([join(path, basename(fname))
 					 for fname in glob(path + "/*")
 					 if splitext(fname)[-1].lower() in extensions])
 	return all_files
-
 
 def get_all_images(classes, conf): #gets all images from all classes
 	all_images = []
@@ -226,7 +219,6 @@ def get_all_images(classes, conf): #gets all images from all classes
 	all_images_class_labels = array(all_images_class_labels, 'int')
 	return all_images, all_images_class_labels, images_per_class
 
-
 def create_split(all_images, images_per_class, conf): #split files between training and testing
 	train_test = []
 	for i in range(0, conf.numClasses):
@@ -246,9 +238,10 @@ def create_split(all_images, images_per_class, conf): #split files between train
 		selTest[i] = all_images.index(ii)
 
 	#crop all images
-	if conf.crop:
-		if (not exists(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))) | OVERWRITE:
-			gc.enable()
+	if (not exists(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))) | OVERWRITE:
+		if conf.crop:
+			if not isdir(conf.dataDir+"/images/"):
+				mkdir(conf.dataDir+"/images/")
 			pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
 			result = [pool.apply_async(autoCrop, args=(i, img)) for i, img in enumerate(train+test)]
 			res = [p.get() for p in result]
@@ -256,16 +249,15 @@ def create_split(all_images, images_per_class, conf): #split files between train
 			for r in res:
 				conf.images[r[0]] = r[1]
 			print str(datetime.now())+" Done crop"
-
-			savemat(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'), conf.images)
 		else:
-			print ("using old cropping")
-			conf.images = loadmat(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))
+			for img in train:
+				conf.images[img] = [img]
+			for img in test:
+				conf.images[img] = [img]
+		savemat(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'), conf.images)
 	else:
-		for img in train:
-			conf.images[img] = [imread(img)]
-		for img in test:
-			conf.images[img] = [imread(img)]
+		print ("using old cropping")
+		conf.images = loadmat(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))
 	
 	return selTrain, selTest
 
@@ -278,6 +270,19 @@ def trim(im, color): #crop based on the binary image to zoom into the largest ar
         return color.crop(bbox) #actually returns the cropped image color, not im
 
 def autoCrop(imName, img): #background remove and then crop
+	if isfile(conf.dataDir+"/images/"+str(imName)+"_0"+".jpg"):
+		imAug = [conf.dataDir+"/images/"+str(imName)+"_0"+".jpg"]
+		if conf.augment:
+			allRotated = True
+			for rot in conf.rotation:
+				if isfile(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg"):
+					imAug.append(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg")
+				else:
+					allRotated = False
+			if allRotated:
+				return [img, imAug]
+		else:
+			return [img, imAug]
 	im = imread(img)
 	imOrig = im
 	x, y, z = im.shape
@@ -353,11 +358,10 @@ def autoCrop(imName, img): #background remove and then crop
 			imsave(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg", rotated)
 			imAug.append(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg")
 	
-	sys.stdout.write("\r"+str(datetime.now())+" AutoCropped Images: "+str((imName/float(conf.numTrain*conf.numTest*conf.numClasses))*100.0)[:5]+"%") #make progress percentage
+	sys.stdout.write("\r"+str(datetime.now())+" AutoCropped Images: "+str((imName/float((conf.numTrain+conf.numTest)*conf.numClasses))*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
 	im = None
 	imOrig = None
-	gc.collect()
 	return [img, imAug]
 
 def trainVocab(selTrain, all_images, conf):
@@ -430,6 +434,7 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.imSize))
 	dat.append(str(conf.numWords))
 	dat.append(str(conf.numbers_of_features_for_histogram))
+	dat.append(str(conf.rotation))
 
 	if isfile("phow_results.xlsx"): #create backup spreadsheet in case network is unmounted
 		wb = load_workbook("phow_results.xlsx", guess_types=True)
@@ -437,7 +442,7 @@ def saveCSV(file, accuracy):
 	else:
 		wb = Workbook(guess_types=True)
 		ws = wb.active
-		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height', 'Number of K-Means Centroids', 'Number of Histogram Features'])
+		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height', 'Number of K-Means Centroids', 'Number of Histogram Features', 'Rotation'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
 
@@ -497,28 +502,21 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--sample_seed",
 		help="Seed for choosing training sample", type=int)
-
 	parser.add_argument("--identifier",
 		help="Identifier for this data set. Should not contain the character '-'")
-	
 	parser.add_argument("--prefix",
 		help="Tag used to distinguish versions of a data set")
-
 	parser.add_argument("--image_dir",
 						help="Path to directory containing images")
-
 	parser.add_argument("--num_classes",
 						help="Number of categories in image set",
 						type=int)
-
 	parser.add_argument("--num_train",
 						help="Number of training images to use from each category",
 						type=int)
-
 	parser.add_argument("--num_test",
 						help="Number of test images to use from each catetory",
 						type=int)
-
 	parser.add_argument("--dsift_size",
 						action='store',
 						help="Size for vl_dsift features, follow with any number of integer values",
@@ -527,19 +525,15 @@ if __name__ == '__main__':
 	parser.add_argument("--num_core",
 						help="Number of CPU cores to use in multiprocessing",
 						type=int)
-
 	parser.add_argument("--im_size",
 					help="Image Height",
-					type=int)
-					
+					type=int)		
 	parser.add_argument("--show_fig",
 						help="Show Figure of Misidentified birds",
 						type=bool)
-		
 	parser.add_argument("--num_words",
 						help="Number of centroids found for k-means clustering",
 						type=int)
-	
 	parser.add_argument("--num_features",
 						help="Number of histogram features",
 						type=int)
@@ -701,14 +695,14 @@ if __name__ == '__main__':
 		cm = confusion_matrix(true_classes, predicted_classes)
 
 		with open(conf.resultPath, 'wb') as fp:
-			#dump(conf, fp)
+			dump(conf, fp)
 			dump(cm, fp)
 			dump(predicted_classes, fp)
 			dump(true_classes, fp)
 			dump(accuracy, fp)
 	else:
 		with open(conf.resultPath, 'rb') as fp:
-			#conf = load(fp)
+			conf = load(fp)
 			cm = load(fp)
 			predicted_classes = load(fp)
 			true_classes = load(fp)
@@ -727,4 +721,4 @@ if __name__ == '__main__':
 			if(true_classes[i] != predicted_classes[i]):
 				misid.append([all_images[selTest[i]],{'trueclass':true_classes[i],'predictedclass':predicted_classes[i]}])
 		showFig(misid, conf)
-	#saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
+	saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
