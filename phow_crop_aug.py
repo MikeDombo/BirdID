@@ -238,27 +238,22 @@ def create_split(all_images, images_per_class, conf): #split files between train
 		selTest[i] = all_images.index(ii)
 
 	#crop all images
-	if (not exists(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))) | OVERWRITE:
-		if conf.crop:
-			if not isdir(conf.dataDir+"/images/"):
-				mkdir(conf.dataDir+"/images/")
-			pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
-			result = [pool.apply_async(autoCrop, args=(i, img)) for i, img in enumerate(train+test)]
-			res = [p.get() for p in result]
-			pool.terminate()
-			for r in res:
-				conf.images[r[0]] = r[1]
-			print ""
-			print str(datetime.now())+" Done crop"
-		else:
-			for img in train:
-				conf.images[img] = [img]
-			for img in test:
-				conf.images[img] = [img]
-		savemat(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'), conf.images)
+	if conf.crop:
+		if not isdir(conf.dataDir+"/images/"):
+			mkdir(conf.dataDir+"/images/")
+		pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
+		result = [pool.apply_async(autoCrop, args=(i, img)) for i, img in enumerate(train+test)]
+		res = [p.get() for p in result]
+		pool.terminate()
+		for r in res:
+			conf.images[r[0]] = r[1]
+		print ""
+		print str(datetime.now())+" Done crop"
 	else:
-		print ("using old cropping")
-		conf.images = loadmat(join(conf.dataDir, conf.prefix + '-bgRemoved.mat'))
+		for img in train:
+			conf.images[img] = [img]
+		for img in test:
+			conf.images[img] = [img]
 	
 	return selTrain, selTest
 
