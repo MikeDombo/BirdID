@@ -36,7 +36,7 @@ IDENTIFIER = '2014-04-17-UR'
 PREFIX = 'baseline'
 
 FEATUREMAP = True
-OVERWRITE = False  # DON'T load mat files generated with a different seed!!!
+OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
 SAMPLE_SEED = 1963543398
 VERBOSE = True	# set to 'SVM' if you want to get the svm output
 
@@ -484,7 +484,7 @@ def showFig(images, conf):
 	fig.set_tight_layout(True)
 	plt.show()
 
-def newAccuracy(predicted_classes, true_classes):
+def newAccuracy(true_classes, predicted_classes):
 	misid = 0
 	wrong = []
 	classGuess = np.zeros(len(conf.rotation)+1)
@@ -530,6 +530,11 @@ if __name__ == '__main__':
 						help="Size for vl_dsift features, follow with any number of integer values",
 						type=int,
 						nargs='*')
+	parser.add_argument("--rotation",
+						action='store',
+						help="degrees of rotation",
+						type=int,
+						nargs='*')
 	parser.add_argument("--num_core",
 						help="Number of CPU cores to use in multiprocessing",
 						type=int)
@@ -538,6 +543,9 @@ if __name__ == '__main__':
 					type=int)		
 	parser.add_argument("--show_fig",
 						help="Show Figure of Misidentified birds",
+						type=bool)
+	parser.add_argument("--crop",
+						help="crop images?",
 						type=bool)
 	parser.add_argument("--num_words",
 						help="Number of centroids found for k-means clustering",
@@ -551,13 +559,10 @@ if __name__ == '__main__':
 	if args.sample_seed:
 		SAMPLE_SEED = args.sample_seed
 		if VERBOSE: print ("SAMPLE_SEED = " + str(SAMPLE_SEED))
-		
 	seed(SAMPLE_SEED)
-
 	if args.identifier:
 		IDENTIFIER = args.identifier
 		if VERBOSE: print ("IDENTIFER = " + IDENTIFIER)
-
 	if args.prefix:
 		PREFIX = args.prefix
 		if VERBOSE: print ("PREFIX = " + PREFIX)
@@ -569,41 +574,37 @@ if __name__ == '__main__':
 	if args.image_dir:
 		conf.calDir = args.image_dir
 		if VERBOSE: print ("Image dir: " + conf.calDir)
-
 	if args.num_classes:
 		conf.numClasses = args.num_classes
 		if VERBOSE: print ("numClasses = " + str(conf.numClasses))
-
 	if args.num_train:
 		conf.numTrain = args.num_train
 		if VERBOSE: print ("numTrain = " + str(conf.numTrain))
-
 	if args.num_test:
 		conf.numTest = args.num_test
 		if VERBOSE: print ("numTest = " + str(conf.numTest))
-
 	if args.dsift_size:
 		conf.phowOpts.Sizes = args.dsift_size
 		if VERBOSE: print ("phowOpts.Sizes = " + str(conf.phowOpts.Sizes))
-
+	if args.rotation:
+		conf.rotation = args.rotation
+		conf.augment = True
+		if VERBOSE: print ("rotation = " + str(conf.rotation))
 	if args.num_core:
 		conf.numCore = args.num_core
 		if VERBOSE: print ("numCore = " + str(conf.numCore))
-
 	if args.im_size:
 		conf.imSize = args.im_size
 		if VERBOSE: print ("imSize = " + str(conf.imSize))
-
 	if args.num_words:
 		conf.numWords = args.num_words
 		if VERBOSE: print ("numWords = " + str(conf.numWords))
-
 	if args.num_test or args.num_train:
 		conf.imagesperclass = conf.numTest+conf.numTrain
-
 	if args.show_fig:
 		conf.showFig = args.show_fig
-
+	if args.crop:
+		conf.crop = args.crop
 	if args.num_features:
 		conf.numbers_of_features_for_histogram = args.num_features
 		if VERBOSE: print ("num_features = " + str(conf.numbers_of_features_for_histogram))
@@ -720,7 +721,7 @@ if __name__ == '__main__':
 	# Output Results #
 	##################
 	print "accuracy =" + str(accuracy)
-	newaccuracy = newAccuracy(predicted_classes, true_classes)
+	newaccuracy = newAccuracy(true_classes, predicted_classes)
 	print "new accuracy =" + str(newaccuracy[0])
 	print cm
 	print str(datetime.now()) + ' run complete with seed = ' + str(SAMPLE_SEED)
