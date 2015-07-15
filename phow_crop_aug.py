@@ -362,9 +362,17 @@ def autoCrop(imName, img): #background remove and then crop
 def trainVocab(selTrain, all_images, conf):
 	selTrainFeats = sample(selTrain, conf.images_for_histogram)
 	descrs = []
+	imageFiles = []
+	imgs = []
+	for x in range(0,len(selTrainFeats)):
+		imageFiles.append("hi")
+	for i, ii in enumerate(selTrainFeats):
+			imageFiles[i] = str(all_images[ii])
+	for files in imageFiles:
+			imgs.append(conf.images[files][0])
 	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
-	results = [pool.apply_async(getPhowFeaturesMulti, args=(imread(all_images[ii]), conf.phowOpts, i)) for i, ii in enumerate(selTrainFeats)]
+	results = [pool.apply_async(getPhowFeaturesMulti, args=(imread(ii), conf.phowOpts, i)) for i, ii in enumerate(imgs)]
 	descrs = [p.get() for p in results]
 	pool.terminate()
 	sorted(descrs)
