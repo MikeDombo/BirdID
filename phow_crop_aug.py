@@ -45,7 +45,7 @@ class Configuration(object):
 		self.calDir = '../../../data/2014_winter/256x256/vlfeat_training_jpg'
 
 		# Path where training data will be stored
-		self.dataDir = '../tempresults'	 # should be resultDir or so
+		self.dataDir = '../result-45-90'	 # should be resultDir or so
 		if not exists(self.dataDir):
 			makedirs(self.dataDir)
 			print ("folder " + self.dataDir + " created")
@@ -78,7 +78,7 @@ class Configuration(object):
 		self.augment = True
 		self.threshold = 1.05
 		self.images = {}
-		self.rotation = [-35,-20, 20, 35]
+		self.rotation = [-90, -45, 45, 90]
 		
 		self.vocabPath = join(self.dataDir, self.prefix + '-' + identifier + '-vocab.py.mat')
 		self.histPath = join(self.dataDir, self.prefix + '-'  + identifier + '-hists.py.mat')
@@ -248,6 +248,7 @@ def create_split(all_images, images_per_class, conf): #split files between train
 			pool.terminate()
 			for r in res:
 				conf.images[r[0]] = r[1]
+			print ""
 			print str(datetime.now())+" Done crop"
 		else:
 			for img in train:
@@ -270,8 +271,8 @@ def trim(im, color): #crop based on the binary image to zoom into the largest ar
         return color.crop(bbox) #actually returns the cropped image color, not im
 
 def autoCrop(imName, img): #background remove and then crop
-	if isfile(conf.dataDir+"/images/"+str(imName)+"_0"+".jpg"):
-		imAug = [conf.dataDir+"/images/"+str(imName)+"_0"+".jpg"]
+	if isfile(conf.dataDir+"/images/"+str(imName)+"_0.jpg"):
+		imAug = [conf.dataDir+"/images/"+str(imName)+"_0.jpg"]
 		if conf.augment:
 			allRotated = True
 			for rot in conf.rotation:
@@ -284,7 +285,8 @@ def autoCrop(imName, img): #background remove and then crop
 		else:
 			return [img, imAug]
 	im = imread(img)
-	imOrig = im
+	imOrig = imread(img)
+	imAug = [conf.dataDir+"/images/"+str(imName)+"_0.jpg"]
 	x, y, z = im.shape
 	binary_im = np.empty([x,y],np.uint8)
 	r,g,b=Image.fromarray(im).getpixel((0,0))
@@ -308,6 +310,7 @@ def autoCrop(imName, img): #background remove and then crop
 		imCrop = im
 	imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop)) #crop image
 	x,y = imCrop.size #get cropped image size
+
 	if x*y>1200000: #if cropped image is too large, then try again using HSV for bg removal
 		x, y, z = imOrig.shape
 		im2 = imOrig
@@ -343,10 +346,9 @@ def autoCrop(imName, img): #background remove and then crop
 		else:
 			imCrop = im
 		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop)) #crop image
+		binary_im = binary_im2
 
-	imCrop = standardizeImage(np.array(imCrop, dtype=np.uint8))
-	imsave(conf.dataDir+"/images/"+str(imName)+"_0"+".jpg", imCrop)
-	imAug = [conf.dataDir+"/images/"+str(imName)+"_0.jpg"]
+	imsave(conf.dataDir+"/images/"+str(imName)+"_0.jpg", imCrop) #save final photo
 
 	if conf.augment:
 		if not conf.removeBg: #check if background should be included or removed in final output
@@ -354,14 +356,12 @@ def autoCrop(imName, img): #background remove and then crop
 		else:
 			imCrop = im
 		for rot in conf.rotation:
-			rotated = standardizeImage(np.array(trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False)))))
-			imsave(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg", rotated)
+			imCropped = trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False)))
+			imsave(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg", imCropped)
 			imAug.append(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg")
 	
 	sys.stdout.write("\r"+str(datetime.now())+" AutoCropped Images: "+str((imName/float((conf.numTrain+conf.numTest)*conf.numClasses))*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
-	im = None
-	imOrig = None
 	return [img, imAug]
 
 def trainVocab(selTrain, all_images, conf):
@@ -403,12 +403,11 @@ def computeHistograms(selTrain, selTest, all_images, model, conf):
 			imageFiles[i] = str(all_images[ii])
 	for files in imageFiles:
 		for i in conf.images[files]:
-			for x in i:
-				imgs.append(x)
+			imgs.append(i)
 	hists = []
 	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
-	results = [pool.apply_async(getImageDescriptor, args=(model, imread(im), ii)) for ii, im in enumerate(imgs)]
+	results = [pool.apply_async(getImageDescriptor, args=(model, imread(str(im)), ii)) for ii, im in enumerate(imgs)]
 	hists = [p.get() for p in results]
 	pool.terminate()
 	sorted(hists)
@@ -482,7 +481,7 @@ def showFig(images, conf):
 		fig = plt.figure(figsize=(16,10))
 		for i, im in enumerate(images):
 			axes[i] = fig.add_subplot(x,y,i+1)
-			axes[i].imshow(imread(im[0]))
+			axes[i].imshow(imread(conf.images[im[0]][0]))
 			axes[i].get_xaxis().set_ticks([])
 			axes[i].get_yaxis().set_ticks([])
 			axes[i].set_title("Classified as a "+conf.classes[im[1]['predictedclass']]+"\nActually is a "+conf.classes[im[1]['trueclass']])
@@ -490,6 +489,20 @@ def showFig(images, conf):
 	fig.set_tight_layout(True)
 	plt.show()
 
+def newAccuracy(predicted_classes, true_classes):
+	misid = 0
+	wrong = []
+	classGuess = np.zeros(len(conf.rotation)+1)
+	for i in range(0, conf.numTest*conf.numClasses*(len(conf.rotation)+1)):
+		classGuess[i%(len(conf.rotation)+1)] = predicted_classes[i]
+		if i%(len(conf.rotation)+1) == len(conf.rotation):
+			classGuess = list(classGuess)
+			finalGuess = max(classGuess, key=classGuess.count)
+			if finalGuess != true_classes[i]:
+				misid = misid+1
+				wrong.append([all_images[selTest[i]], {'trueclass':true_classes[i],'predictedclass':finalGuess}, i])
+	originalNumBirds = float(len(true_classes)/(len(conf.rotation)+1))
+	return [(1.0-(misid/originalNumBirds)), wrong]
 
 ################
 # Main Program #
@@ -712,13 +725,12 @@ if __name__ == '__main__':
 	# Output Results #
 	##################
 	print "accuracy =" + str(accuracy)
+	newaccuracy = newAccuracy(predicted_classes, true_classes)
+	print "new accuracy =" + str(newaccuracy[0])
 	print cm
 	print str(datetime.now()) + ' run complete with seed = ' + str(SAMPLE_SEED)
 	if conf.showFig:
 		#Generate Figure of misidentified images
-		misid = []
-		for i in range(0, conf.numTest*conf.numClasses):
-			if(true_classes[i] != predicted_classes[i]):
-				misid.append([all_images[selTest[i]],{'trueclass':true_classes[i],'predictedclass':predicted_classes[i]}])
-		showFig(misid, conf)
-	saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
+		showFig(newaccuracy[1], conf)
+	
+	saveCSV("phow_results.xlsx", newaccuracy[0]) #save data as excel spreadsheet
