@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from os.path import isdir, basename, splitext, join, isfile, getsize
+from os.path import isdir, basename, splitext, join, isfile
 from os import mkdir, remove, listdir
 from glob import glob
 import multiprocessing
@@ -8,6 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageChops
 from scipy import ndimage
+from scipy.ndimage import interpolation
 from datetime import datetime
 import argparse
 import sys
@@ -22,6 +23,7 @@ class Configure(object):
 		self.threshold = threshold
 		self.numTot = 0
 		self.incBg = incBg
+		self.augment = False
 		self.imPerClass = []
 		self.VERBOSE = VERBOSE
 
@@ -77,8 +79,12 @@ def autoCrop(imName, img, imageclass, conf): #background remove and then crop
 			pass
 	if imageclass == "EmptyFeeder":
 		imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop_NoMod.jpg", imOrig)
+		if conf.augment:
+			for rot in [-35,-20, 20, 35]:
+				imCropped = interpolation.rotate(imOrig, rot, reshape=False)
+				imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_rot"+str(rot)+".jpg", imCropped)
 		return "skipping"
-	if not isfile(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg"):
+	if not isfile(conf.output_folder+"/"+imageclass+"/"+str(imName)+".jpg"):
 		x, y, z = im.shape
 		binary_im = np.empty([x,y],np.uint8)
 		r,g,b=Image.fromarray(im).getpixel((0,0))
@@ -142,7 +148,16 @@ def autoCrop(imName, img, imageclass, conf): #background remove and then crop
 
 		if conf.save_figure:
 			save_figure(binary_im, labels, max_feature, imCrop, imageclass, imName, conf) #save figure
-		imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_AutoCrop.jpg", imCrop) #save final photo
+		imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+".jpg", imCrop) #save final photo
+
+		if conf.augment:
+			if conf.incBg: #check if background should be included or removed in final output
+				imCrop = imOrig
+			else:
+				imCrop = im
+			for rot in [-35,-20, 20, 35]:
+				imCropped = trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False)))
+				imsave(conf.output_folder+"/"+imageclass+"/"+str(imName)+"_rot"+str(rot)+".jpg", imCropped)
 
 	for i, classes in enumerate(conf.imPerClass): #find the percent complete
 		if classes[0] == imageclass:
@@ -189,6 +204,7 @@ if __name__ == "__main__":
 	parser.add_argument("--inc_bg", help="Include background in output files?", type=bool)
 	parser.add_argument("--input_dir", help="Input Directory")
 	parser.add_argument("--output_dir", help="Output Dataset Directory")
+	parser.add_argument("--augment", help="Augment By Rotating?", type=bool)
 	
 	args = parser.parse_args()
 						
@@ -205,6 +221,8 @@ if __name__ == "__main__":
 		conf.show_figure = args.show_fig
 	if args.inc_bg:
 		conf.incBg = args.inc_bg
+	if args.augment:
+		conf.augment = args.augment
 
 
 	classes = get_classes(conf.input_folder) #get the classes
