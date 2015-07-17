@@ -33,7 +33,7 @@ PREFIX = 'baseline'
 
 SAVETODISC = False
 FEATUREMAP = True
-OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
+OVERWRITE = False  # DON'T load mat files generated with a different seed!!!
 SAMPLE_SEED = 1963543398
 TINYPROBLEM = False
 VERBOSE = True	# set to 'SVM' if you want to get the svm output
@@ -508,6 +508,9 @@ if __name__ == '__main__':
 		if VERBOSE: print (str(datetime.now()) + ' testing svm')
 		predicted_classes = clf.predict(test_data)
 		true_classes = all_images_class_labels[selTest]
+                if VERBOSE:
+                        print("True classes", true_classes)
+                        print("Pred classes", predicted_classes)
 		accuracy = accuracy_score(true_classes, predicted_classes)
 		cm = confusion_matrix(true_classes, predicted_classes)
 		with open(conf.resultPath, 'wb') as fp:
