@@ -17,7 +17,7 @@ from vlfeat import vl_ikmeans
 from scipy.io import loadmat, savemat
 from sklearn import svm
 from sklearn.metrics import confusion_matrix, accuracy_score
-import matplotlib.pyplot as plt
+import pylab as pl
 from datetime import datetime
 from sklearn.kernel_approximation import AdditiveChi2Sampler
 from cPickle import dump, load
@@ -32,8 +32,8 @@ IDENTIFIER = '2014-04-17-UR'
 PREFIX = 'baseline'
 
 FEATUREMAP = True
-OVERWRITE = False  # DON'T load mat files generated with a different seed!!!
-SAMPLE_SEED = 1963543398
+OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
+SAMPLE_SEED = 64546542
 TINYPROBLEM = False
 VERBOSE = True	# set to 'SVM' if you want to get the svm output
 
@@ -51,7 +51,6 @@ class Configuration(object):
 		# class
 		self.numTrain = 70
 		self.numTest = 30
-		
 		self.numCore = multiprocessing.cpu_count()
 		self.imagesperclass = self.numTrain + self.numTest
 		self.numClasses = 10
@@ -59,8 +58,8 @@ class Configuration(object):
 		self.numSpatialX = [2, 4]
 		self.numSpatialY = [2, 4]
 		self.quantizer = 'vq'  # kdtree from the .m version not implemented
-		self.svmC = 15
-		self.phowOpts = PHOWOptions(Verbose=False, Sizes=[2, 4, 6, 8], Step=3)
+		self.svm = SVMParameters(C=10)
+		self.phowOpts = PHOWOptions(Verbose=False, Sizes=[6], Step=3)
 		self.tinyProblem = TINYPROBLEM
 		self.prefix = prefix
 		self.verbose = True
@@ -69,11 +68,8 @@ class Configuration(object):
 		self.numbers_of_features_for_histogram = 100000
 		self.imSize = 480
 		
-		self.saveFig = False
-		self.showFig = False
-		
-		self.vocabPath = join(self.dataDir, self.prefix + '-' + identifier + '-vocab.py.mat')
-		self.histPath = join(self.dataDir, self.prefix + '-'  + identifier + '-hists.py.mat')
+		self.vocabPath = join(self.dataDir, identifier + '-vocab.py.mat')
+		self.histPath = join(self.dataDir, identifier + '-hists.py.mat')
 		self.modelPath = join(self.dataDir, self.prefix + '-' + identifier + '-model.py.mat')
 		self.resultPath = join(self.dataDir, self.prefix + '-' + identifier + '-result')
 
@@ -98,7 +94,7 @@ def ensure_type_array(data):
 	return data
 
 
-def standardizeImage(im): #Scales image down to 640x480 or whatever the correct aspect ratio is with conf.imSize as the height
+def standardizeImage(im): #Scales image down to 640x480
 	im = array(im, 'float32') 
 	if im.shape[0] > conf.imSize:
 		resize_factor = float(conf.imSize) / im.shape[0]	 # don't remove trailing .0 to avoid integer devision
@@ -173,6 +169,11 @@ class Model(object):
 		self.vocab = vocab
 
 
+class SVMParameters(object):
+	def __init__(self, C):
+		self.C = C
+
+
 class PHOWOptions(object):
 	def __init__(self, Verbose, Sizes, Step):
 		self.Verbose = Verbose
@@ -202,7 +203,17 @@ def get_imgfiles(path, extensions): #get images from 1 class folder
 	return all_files
 
 
+def showconfusionmatrix(cm):
+	pl.matshow(cm)
+	pl.title('Confusion matrix')
+	pl.colorbar()
+	pl.show()
+
+
 def get_all_images(classes, conf): #gets all images from all classes
+	conf.numTrain = conf.numTrain/2
+	conf.numTest = conf.numTest/2
+	
 	all_images = []
 	all_images_class_labels = []
 	images_per_class = [0]
@@ -225,18 +236,38 @@ def get_all_images(classes, conf): #gets all images from all classes
 
 def create_split(all_images, images_per_class, conf): #split files between training and testing
 	train_test = []
+	train2 = []
+	test2 = []
+	selTrain = []
+	selTest = []
+	
 	for i in range(0, conf.numClasses):
 		new_train = sample(all_images[images_per_class[i]:images_per_class[i+1]], conf.imagesperclass)
 		train_test = train_test+new_train
-	selTrain = []
+	firstHalf = train_test[::2]
+	secondHalf = train_test[1::2]
+
 	for i in range(0, conf.numClasses):
-		selTrain = selTrain + sample(train_test[i*(conf.imagesperclass):(i+1)*(conf.imagesperclass)], conf.numTrain)
-	selTest = [x for x in train_test if x not in selTrain]
+		selTrain = selTrain+sample(firstHalf[i*conf.imagesperclass/2:(i+1)*conf.imagesperclass/2], conf.numTrain)
+	selTest = [x for x in firstHalf if x not in selTrain]
+
+	for i in range(0, conf.numClasses):
+		train2 = train2+sample(secondHalf[i*conf.imagesperclass/2:(i+1)*conf.imagesperclass/2], conf.numTrain)
+	test2 = [x for x in secondHalf if x not in train2]
 	for i, ii in enumerate(selTrain):
 		selTrain[i] = all_images.index(ii)
 	for i, ii in enumerate(selTest):
 		selTest[i] = all_images.index(ii)
-	return selTrain, selTest
+	for i, ii in enumerate(train2):
+		train2[i] = all_images.index(ii)
+	for i, ii in enumerate(test2):
+		test2[i] = all_images.index(ii)
+	return selTrain, selTest, train2, test2
+
+def create_split2(train2, test2, wrong):
+	train2 = sample(train2, len(train2)-len(wrong))
+	train2 = train2+wrong
+	return train2, test2
 
 
 def trainVocab(selTrain, all_images, conf):
@@ -246,7 +277,6 @@ def trainVocab(selTrain, all_images, conf):
 	pool = multiprocessing.Pool(processes=conf.numCore)
 	results = [pool.apply_async(getPhowFeaturesMulti, args=(imread(all_images[ii]), conf.phowOpts, i)) for i, ii in enumerate(selTrainFeats)]
 	descrs = [p.get() for p in results]
-	pool.terminate()
 	sorted(descrs)
 	for descr in descrs:
 		descr.pop(0)
@@ -278,11 +308,22 @@ def computeHistograms(all_images, selTrain, selTest, model, conf):
 	pool = multiprocessing.Pool(processes=conf.numCore)
 	results = [pool.apply_async(getImageDescriptor, args=(model, imread(imagefname), ii)) for ii, imagefname in enumerate(imgs)]
 	hists = [p.get() for p in results]
-	pool.terminate()
 	sorted(hists)
 	for hist in hists:
 		hist.pop(0)
 	#end multiprocessing block
+	hists = vstack(hists)
+	print "" #puts in a new line to separate histogram percentage
+	return hists
+
+def computeHistograms2(all_images, selTrain, selTest, model, conf):
+	images = numpy.append(selTrain,selTest).tolist()
+	imgs = []
+	for i in images:
+		imgs.append(all_images[i])
+	hists = []
+	for ii, imagefname in enumerate(imgs):
+		hists.append(getImageDescriptor(model, imread(imagefname), ii)[1])
 	hists = vstack(hists)
 	print "" #puts in a new line to separate histogram percentage
 	return hists
@@ -312,8 +353,8 @@ def saveCSV(file, accuracy):
 		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height', 'Number of K-Means Centroids', 'Number of Histogram Features'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
-	"""
-	ftp = ftplib.FTP()#enter server information here
+
+	ftp = ftplib.FTP('dombrowskivpn.mynetgear.com', "lbarnett-students", 'lbarnett-studentaccess')
 	ftp.set_pasv(False)
 	with open("temp.xlsx", 'wb') as f:
 		def callback(data):
@@ -325,39 +366,7 @@ def saveCSV(file, accuracy):
 	wb.save("temp.xlsx")
 	ftp.storbinary('STOR '+str(file), open('temp.xlsx','r'))
 	ftp.close()
-	remove('temp.xlsx')"""
-
-def showFig(images, conf):
-	axes = {}
-	if len(images)>0:
-		if len(images)<=16:
-			x = 4
-			y = 4
-		elif len(images)<=25:
-			x = 5
-			y = 5
-		elif len(images)<=35:
-			x = 7
-			y = 5
-		else:
-			x = 7
-			y = 5
-			while int(x)*y<len(images):
-				y = y+1
-				x = y*(4/3)
-		x = int(x)
-		fig = plt.figure(figsize=(15,10))
-		for i, im in enumerate(images):
-			axes[i] = fig.add_subplot(x,y,i+1)
-			axes[i].imshow(imread(im[0]))
-			axes[i].get_xaxis().set_ticks([])
-			axes[i].get_yaxis().set_ticks([])
-			axes[i].set_title("Classified as a "+conf.classes[im[1]['predictedclass']]+"\nActually is a "+conf.classes[im[1]['trueclass']])
-	
-	fig.set_tight_layout(True)
-	plt.show()
-	#fig.savefig(conf.output_folder+"/figures/"+imageclass+"/figure_"+str(imName)+".png", dpi=75)
-
+	remove('temp.xlsx')
 
 ################
 # Main Program #
@@ -368,7 +377,7 @@ if __name__ == '__main__':
 	# Handle command-line arguments #
 	#################################
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--sample_seed",
+	parser.add_argument("--sample_seed_arg", 
 		help="Seed for choosing training sample", type=int)
 
 	parser.add_argument("--identifier",
@@ -404,10 +413,6 @@ if __name__ == '__main__':
 	parser.add_argument("--im_size",
 					help="Image Height",
 					type=int)
-					
-	parser.add_argument("--show_fig",
-						help="Show Figure of Misidentified birds",
-						type=bool)
 		
 	parser.add_argument("--num_words",
 						help="Number of centroids found for k-means clustering",
@@ -417,14 +422,10 @@ if __name__ == '__main__':
 						help="Number of histogram features",
 						type=int)
 	
-	parser.add_argument("--svm_c",
-						help="Number of SVMs competing",
-						type=int)
-
 	args = parser.parse_args()
 
-	if args.sample_seed:
-		SAMPLE_SEED = args.sample_seed
+	if args.sample_seed_arg:
+		SAMPLE_SEED = args.sample_seed_arg
 		if VERBOSE: print ("SAMPLE_SEED = " + str(SAMPLE_SEED))
 		
 	seed(SAMPLE_SEED)
@@ -457,6 +458,9 @@ if __name__ == '__main__':
 		conf.numTest = args.num_test
 		if VERBOSE: print ("numTest = " + str(conf.numTest))
 
+	if args.num_test or args.num_train:
+		conf.imagesperclass = conf.numTest+conf.numTrain
+
 	if args.dsift_size:
 		conf.phowOpts.Sizes = args.dsift_size
 		if VERBOSE: print ("phowOpts.Sizes = " + str(conf.phowOpts.Sizes))
@@ -473,19 +477,9 @@ if __name__ == '__main__':
 		conf.numWords = args.num_words
 		if VERBOSE: print ("numWords = " + str(conf.numWords))
 
-	if args.num_test or args.num_train:
-		conf.imagesperclass = conf.numTest+conf.numTrain
-
-	if args.show_fig:
-		conf.showFig = args.show_fig
-
 	if args.num_features:
 		conf.numbers_of_features_for_histogram = args.num_features
 		if VERBOSE: print ("num_features = " + str(conf.numbers_of_features_for_histogram))
-
-	if args.svm_c:
-		conf.svmC = args.svm_c
-		if VERBOSE: print ("svm_c = " + str(args.svm_c))
 
 	if VERBOSE: print (str(datetime.now()) + ' finished conf')
 
@@ -497,7 +491,7 @@ if __name__ == '__main__':
 	# all_images_class_labels is an array containing the integer corresponding
 	# to the class the image belongs to based on the directory structure
 	all_images, all_images_class_labels, images_per_class = get_all_images(classes, conf)
-	selTrain, selTest = create_split(all_images, images_per_class, conf)
+	selTrain, selTest, train2, test2 = create_split(all_images, images_per_class, conf)
 
 	if VERBOSE: print (str(datetime.now()) + ' found classes and created split ')
 
@@ -547,8 +541,9 @@ if __name__ == '__main__':
 			verbose = True
 		else:
 			verbose = False
-		clf = svm.LinearSVC(C=conf.svmC)
+		clf = svm.LinearSVC(C=conf.svm.C)
 		if VERBOSE: print (clf)
+
 		clf.fit(train_data, all_images_class_labels[selTrain])
 		with open(conf.modelPath, 'wb') as fp:
 			dump(clf, fp)
@@ -564,12 +559,112 @@ if __name__ == '__main__':
 		if VERBOSE: print (str(datetime.now()) + ' testing svm')
 		predicted_classes = clf.predict(test_data)
 		true_classes = all_images_class_labels[selTest]
-                if VERBOSE:
-                        print("True classes", true_classes)
-                        print("Pred classes", predicted_classes)
+		
+		misid = []
+		for i in range(0, conf.numTest*conf.numClasses):
+			if(true_classes[i] != predicted_classes[i]):
+				misid.append(selTest[i])
+		
 		accuracy = accuracy_score(true_classes, predicted_classes)
 		cm = confusion_matrix(true_classes, predicted_classes)
+		with open(conf.resultPath, 'wb') as fp:
+			dump(conf, fp)
+			dump(cm, fp)
+			dump(predicted_classes, fp)
+			dump(true_classes, fp)
+			dump(accuracy, fp)
+	else:
+		with open(conf.resultPath, 'rb') as fp:
+			conf = load(fp)
+			cm = load(fp)
+			predicted_classes = load(fp)
+			true_classes = load(fp)
+			accuracy = load(fp)
+	
 
+	##################
+	# Output Results #
+	##################
+	print ("accuracy =" + str(accuracy))
+	print (cm)
+
+
+
+
+	#run again with new training IDs
+	conf.numTrain = 70
+	conf.numTest = 30
+	classes = get_classes(conf.calDir, conf.numClasses) #get classes from data folder
+	all_images, all_images_class_labels, images_per_class = get_all_images(classes, conf)
+	model = Model(classes, conf)
+	train, test = create_split2(train2, test2, misid)
+
+	####################
+	# Train vocabulary #
+	####################
+	if VERBOSE: print (str(datetime.now()) + ' start training vocab')
+	if (not exists(conf.vocabPath)) | OVERWRITE:
+		vocab = trainVocab(train, all_images, conf)
+		print (str(datetime.now()) + ' vocab trained, saving')
+		savemat(conf.vocabPath, {'vocab': vocab})
+		print (str(datetime.now()) + ' vocab saved')
+	else:
+		if VERBOSE: print ("using old vocab from " + conf.vocabPath)
+		vocab = loadmat(conf.vocabPath)['vocab']
+	model.vocab = vocab
+
+
+	##############################
+	# Compute spatial histograms #
+	##############################
+	if VERBOSE: print (str(datetime.now()) + ' start computing hists')
+	if (not exists(conf.histPath)) | OVERWRITE:
+		hists = computeHistograms2(all_images, train, test, model, conf)
+		savemat(conf.histPath, {'hists': hists})
+	else:
+		if VERBOSE: print ("using old hists from " + conf.histPath)
+		hists = loadmat(conf.histPath)['hists']
+
+
+	#######################
+	# Compute feature map #
+	#######################
+	if VERBOSE: print (str(datetime.now()) + ' start computing feature map')
+	transformer = AdditiveChi2Sampler()
+	histst = transformer.fit_transform(hists)
+	train_data = histst[0:conf.numTrain*conf.numClasses]
+	test_data = histst[conf.numTrain*conf.numClasses:]
+
+
+	#############
+	# Train SVM #
+	#############
+	if (not exists(conf.modelPath)) | OVERWRITE:
+		if VERBOSE: print (str(datetime.now()) + ' training liblinear svm')
+		if VERBOSE == 'SVM':
+			verbose = True
+		else:
+			verbose = False
+		clf = svm.LinearSVC(C=conf.svm.C)
+		if VERBOSE: print (clf)
+		
+		clf.fit(train_data, all_images_class_labels[train])
+		with open(conf.modelPath, 'wb') as fp:
+			dump(clf, fp)
+	else:
+		if VERBOSE: print ("loading old SVM model")
+		with open(conf.modelPath, 'rb') as fp:
+			clf = load(fp)
+
+	############
+	# Test SVM #
+	############
+	if (not exists(conf.resultPath)) | OVERWRITE:
+		if VERBOSE: print (str(datetime.now()) + ' testing svm')
+		predicted_classes = clf.predict(test_data)
+		true_classes = all_images_class_labels[test]
+		accuracy = accuracy_score(true_classes, predicted_classes)
+		cm = confusion_matrix(true_classes, predicted_classes)
 		with open(conf.resultPath, 'wb') as fp:
 			dump(conf, fp)
 			dump(cm, fp)
@@ -584,17 +679,9 @@ if __name__ == '__main__':
 			true_classes = load(fp)
 			accuracy = load(fp)
 
+
 	##################
 	# Output Results #
 	##################
-	print "accuracy =" + str(accuracy)
-	print cm
-	print str(datetime.now()) + ' run complete with seed = ' + str(SAMPLE_SEED)
-	if conf.showFig:
-		#Generate Figure of misidentified images
-		misid = []
-		for i in range(0, conf.numTest*conf.numClasses):
-			if(true_classes[i] != predicted_classes[i]):
-				misid.append([all_images[selTest[i]],{'trueclass':true_classes[i],'predictedclass':predicted_classes[i]}])
-		showFig(misid, conf)
-	saveCSV("phow_results.xlsx", accuracy) #save data as excel spreadsheet
+	print ("accuracy =" + str(accuracy))
+	print (cm)

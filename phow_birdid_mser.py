@@ -67,7 +67,6 @@ class Configuration(object):
         self.clobber = False
         self.tinyProblem = TINYPROBLEM
         self.prefix = prefix
-        self.randSeed = 11
         self.verbose = True
         self.extensions = [".jpg", ".jpeg", ".bmp", ".png", ".pgm", ".tif", ".tiff"]
         self.images_for_histogram = 30
