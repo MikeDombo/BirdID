@@ -17,7 +17,7 @@ from vl_phow import vl_phow
 from vlfeat import vl_ikmeans
 from scipy.io import loadmat, savemat
 from sklearn import svm
-from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report, precision_score
 import matplotlib.pyplot as plt
 from datetime import datetime
 from sklearn.kernel_approximation import AdditiveChi2Sampler
@@ -84,7 +84,7 @@ class Configuration(object):
 		self.histPath = join(self.dataDir, self.prefix + '-'  + identifier + '-hists.py.mat')
 		self.modelPath = join(self.dataDir, self.prefix + '-' + identifier + '-model.py.mat')
 		self.resultPath = join(self.dataDir, self.prefix + '-' + identifier + '-result')
-		self.imageCropPath = join(self.dataDir, 'images-'+str(SAMPLE_SEED)+"/")
+		self.imageCropPath = join(self.dataDir, 'images/')
 
 		# tests and conversions
 		self.phowOpts.Sizes = ensure_type_array(self.phowOpts.Sizes)
@@ -267,13 +267,14 @@ def trim(im, color): #crop based on the binary image to zoom into the largest ar
         return color.crop(bbox) #actually returns the cropped image color, not im
 
 def autoCrop(imName, img): #background remove and then crop
-	if isfile(conf.imageCropPath+str(imName)+"_0.jpg"):
-		imAug = [conf.imageCropPath+str(imName)+"_0.jpg"]
+	imageName = img.rpartition('/')[2][:-4]
+	if isfile(conf.imageCropPath+str(imageName)+"_0.jpg"):
+		imAug = [conf.imageCropPath+str(imageName)+"_0.jpg"]
 		if conf.augment:
 			allRotated = True
 			for rot in conf.rotation:
-				if isfile(conf.imageCropPath+str(imName)+"_"+str(rot)+".jpg"):
-					imAug.append(conf.imageCropPath+str(imName)+"_"+str(rot)+".jpg")
+				if isfile(conf.imageCropPath+str(imageName)+"_"+str(rot)+".jpg"):
+					imAug.append(conf.imageCropPath+str(imageName)+"_"+str(rot)+".jpg")
 				else:
 					allRotated = False
 			if allRotated:
@@ -282,7 +283,7 @@ def autoCrop(imName, img): #background remove and then crop
 			return [img, imAug]
 	im = imread(img)
 	imOrig = imread(img)
-	imAug = [conf.imageCropPath+str(imName)+"_0.jpg"]
+	imAug = [conf.imageCropPath+str(imageName)+"_0.jpg"]
 	x, y, z = im.shape
 	binary_im = np.empty([x,y],np.uint8)
 	r,g,b=Image.fromarray(im).getpixel((0,0))
@@ -344,7 +345,7 @@ def autoCrop(imName, img): #background remove and then crop
 		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop)) #crop image
 		binary_im = binary_im2
 
-	imsave(conf.imageCropPath+str(imName)+"_0.jpg", imCrop) #save final photo
+	imsave(conf.imageCropPath+str(imageName)+"_0.jpg", imCrop) #save final photo
 
 	if conf.augment:
 		if not conf.removeBg: #check if background should be included or removed in final output
@@ -353,8 +354,8 @@ def autoCrop(imName, img): #background remove and then crop
 			imCrop = im
 		for rot in conf.rotation:
 			imCropped = trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False)))
-			imsave(conf.imageCropPath+str(imName)+"_"+str(rot)+".jpg", imCropped)
-			imAug.append(conf.imageCropPath+str(imName)+"_"+str(rot)+".jpg")
+			imsave(conf.imageCropPath+str(imageName)+"_"+str(rot)+".jpg", imCropped)
+			imAug.append(conf.imageCropPath+str(imageName)+"_"+str(rot)+".jpg")
 	
 	sys.stdout.write("\r"+str(datetime.now())+" AutoCropped Images: "+str((imName/float((conf.numTrain+conf.numTest)*conf.numClasses))*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
@@ -422,7 +423,7 @@ def computeHistograms(selTrain, selTest, all_images, model, conf):
 	print "" #puts in a new line to separate histogram percentage
 	return hists
 
-def saveCSV(file, accuracy):
+def saveCSV(file, accuracy, precision):
 	dat = []
 	dat.append(datetime.now())
 	dat.append(str(PREFIX))
@@ -438,6 +439,7 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.numWords))
 	dat.append(str(conf.numbers_of_features_for_histogram))
 	dat.append(str(conf.rotation))
+	dat.append(str(precision))
 
 	if isfile("phow_results.xlsx"): #create backup spreadsheet in case network is unmounted
 		wb = load_workbook("phow_results.xlsx", guess_types=True)
@@ -445,7 +447,7 @@ def saveCSV(file, accuracy):
 	else:
 		wb = Workbook(guess_types=True)
 		ws = wb.active
-		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height', 'Number of K-Means Centroids', 'Number of Histogram Features', 'Rotation'])
+		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height', 'Number of K-Means Centroids', 'Number of Histogram Features', 'Rotation', 'Precision'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
 
@@ -496,17 +498,21 @@ def showFig(images, conf):
 def newAccuracy(true_classes, predicted_classes):
 	misid = 0
 	wrong = []
+	newTrue = []
+	newPrediction = []
 	classGuess = np.zeros(len(conf.rotation)+1)
 	for i in range(0, conf.numTest*conf.numClasses*(len(conf.rotation)+1)):
 		classGuess[i%(len(conf.rotation)+1)] = predicted_classes[i]
 		if i%(len(conf.rotation)+1) == len(conf.rotation):
 			classGuess = list(classGuess)
 			finalGuess = max(classGuess, key=classGuess.count)
+			newTrue.append(true_classes[i])
+			newPrediction.append(finalGuess)
 			if finalGuess != true_classes[i]:
 				misid = misid+1
 				wrong.append([all_images[selTest[i]], {'trueclass':true_classes[i],'predictedclass':finalGuess}, i])
 	originalNumBirds = float(len(true_classes)/(len(conf.rotation)+1))
-	return [(1.0-(misid/originalNumBirds)), wrong]
+	return [(1.0-(misid/originalNumBirds)), wrong, newTrue, newPrediction]
 
 ################
 # Main Program #
@@ -737,5 +743,8 @@ if __name__ == '__main__':
 	if conf.showFig:
 		#Generate Figure of misidentified images
 		showFig(newaccuracy[1], conf)
-	
-	saveCSV("phow_results.xlsx", newaccuracy[0]) #save data as excel spreadsheet
+	print str(classification_report(newaccuracy[2], newaccuracy[3], target_names=classes))
+	precision = precision_score(newaccuracy[2], newaccuracy[3])
+	print str(precision)
+
+	saveCSV("phow_results.xlsx", newaccuracy[0], precision) #save data as excel spreadsheet

@@ -32,7 +32,7 @@ IDENTIFIER = '2014-04-17-UR'
 PREFIX = 'baseline'
 
 FEATUREMAP = True
-OVERWRITE = False  # DON'T load mat files generated with a different seed!!!
+OVERWRITE = True  # DON'T load mat files generated with a different seed!!!
 SAMPLE_SEED = 1963543398
 TINYPROBLEM = False
 VERBOSE = True	# set to 'SVM' if you want to get the svm output
