@@ -41,16 +41,16 @@ def get_all_images(classes, conf):
 		result = [pool.apply_async(rotate, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
 		res = [p.get() for p in result]
 		print "done "+str(imageclass)
-	"""for i, imageclass in enumerate(classes):
+	for i, imageclass in enumerate(classes):
 		imgs = get_imgfiles(join(conf.input_folder,imageclass))
 		pool = multiprocessing.Pool(processes=4)
 		result = [pool.apply_async(zoom, args=(imName, img, imageclass, conf)) for imName, img in enumerate(imgs)]
 		res = [p.get() for p in result]
-		print "done "+str(imageclass)"""
+		print "done "+str(imageclass)
 
 def rotate(imName, img, imageclass, conf):
 	imName = imName+1
-	i=0
+	i=45
 	im = imread(img)
 	if not isdir(conf.output_folder+imageclass):
 		try:
@@ -59,7 +59,7 @@ def rotate(imName, img, imageclass, conf):
 			pass
 	while i<360:
 		if not isfile(conf.output_folder+imageclass+"/"+str(imName)+"_rot_"+str(i)+".jpg"):
-			imsave(join(conf.output_folder,imageclass)+"/"+str(imName)+"_rot_"+str(i)+".jpg",transform.rotate(im, i, resize=True))
+			imsave(join(conf.output_folder,imageclass)+"/"+str(imName)+"_rot_"+str(i)+".jpg",transform.rotate(im, i, resize=False))
 		elif conf.VERBOSE:
 			print "skipped #"+str(imName)+" in "+str(imageclass)
 		if i == 90:
@@ -86,8 +86,8 @@ def zoom(imName, img, imageclass, conf):
 	return str(imName)
 
 if __name__ == "__main__":
-	input_folder = "../remove-test/"
-	output_folder = "../augmented-noZoom/"
+	input_folder = "../output-nobg-1.05/"
+	output_folder = "../augmented/"
 	conf = Configure(input_folder, output_folder, VERBOSE=False)
 	classes = get_classes(input_folder)
 	get_all_images(classes, conf)
