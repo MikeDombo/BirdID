@@ -267,7 +267,8 @@ def trim(im, color): #crop based on the binary image to zoom into the largest ar
         return color.crop(bbox) #actually returns the cropped image color, not im
 
 def autoCrop(imName, img): #background remove and then crop
-	imageName = img.rpartition('/')[2][:-4]
+	extension = -(len(img.rpartition('.')[2])+1) #find how long the extension is, ie .jpg
+	imageName = img.rpartition('/')[2][:extension] #get just the image name minus the extension and path
 	if isfile(conf.imageCropPath+str(imageName)+"_0.jpg"):
 		imAug = [conf.imageCropPath+str(imageName)+"_0.jpg"]
 		if conf.augment:
