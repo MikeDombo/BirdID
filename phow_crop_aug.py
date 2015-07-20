@@ -84,6 +84,7 @@ class Configuration(object):
 		self.histPath = join(self.dataDir, self.prefix + '-'  + identifier + '-hists.py.mat')
 		self.modelPath = join(self.dataDir, self.prefix + '-' + identifier + '-model.py.mat')
 		self.resultPath = join(self.dataDir, self.prefix + '-' + identifier + '-result')
+		self.imageCropPath = join(self.dataDir, 'images-'+str(SAMPLE_SEED)+"/")
 
 		# tests and conversions
 		self.phowOpts.Sizes = ensure_type_array(self.phowOpts.Sizes)
@@ -239,8 +240,8 @@ def create_split(all_images, images_per_class, conf): #split files between train
 
 	#crop all images
 	if conf.crop:
-		if not isdir(conf.dataDir+"/images/"):
-			mkdir(conf.dataDir+"/images/")
+		if not isdir(conf.imageCropPath):
+			mkdir(conf.imageCropPath)
 		pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
 		result = [pool.apply_async(autoCrop, args=(i, img)) for i, img in enumerate(train+test)]
 		res = [p.get() for p in result]
@@ -266,13 +267,13 @@ def trim(im, color): #crop based on the binary image to zoom into the largest ar
         return color.crop(bbox) #actually returns the cropped image color, not im
 
 def autoCrop(imName, img): #background remove and then crop
-	if isfile(conf.dataDir+"/images/"+str(imName)+"_0.jpg"):
-		imAug = [conf.dataDir+"/images/"+str(imName)+"_0.jpg"]
+	if isfile(conf.imageCropPath+str(imName)+"_0.jpg"):
+		imAug = [conf.imageCropPath+str(imName)+"_0.jpg"]
 		if conf.augment:
 			allRotated = True
 			for rot in conf.rotation:
-				if isfile(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg"):
-					imAug.append(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg")
+				if isfile(conf.imageCropPath+str(imName)+"_"+str(rot)+".jpg"):
+					imAug.append(conf.imageCropPath+str(imName)+"_"+str(rot)+".jpg")
 				else:
 					allRotated = False
 			if allRotated:
@@ -281,7 +282,7 @@ def autoCrop(imName, img): #background remove and then crop
 			return [img, imAug]
 	im = imread(img)
 	imOrig = imread(img)
-	imAug = [conf.dataDir+"/images/"+str(imName)+"_0.jpg"]
+	imAug = [conf.imageCropPath+str(imName)+"_0.jpg"]
 	x, y, z = im.shape
 	binary_im = np.empty([x,y],np.uint8)
 	r,g,b=Image.fromarray(im).getpixel((0,0))
@@ -343,7 +344,7 @@ def autoCrop(imName, img): #background remove and then crop
 		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop)) #crop image
 		binary_im = binary_im2
 
-	imsave(conf.dataDir+"/images/"+str(imName)+"_0.jpg", imCrop) #save final photo
+	imsave(conf.imageCropPath+str(imName)+"_0.jpg", imCrop) #save final photo
 
 	if conf.augment:
 		if not conf.removeBg: #check if background should be included or removed in final output
@@ -352,8 +353,8 @@ def autoCrop(imName, img): #background remove and then crop
 			imCrop = im
 		for rot in conf.rotation:
 			imCropped = trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False)))
-			imsave(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg", imCropped)
-			imAug.append(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg")
+			imsave(conf.imageCropPath+str(imName)+"_"+str(rot)+".jpg", imCropped)
+			imAug.append(conf.imageCropPath+str(imName)+"_"+str(rot)+".jpg")
 	
 	sys.stdout.write("\r"+str(datetime.now())+" AutoCropped Images: "+str((imName/float((conf.numTrain+conf.numTest)*conf.numClasses))*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
