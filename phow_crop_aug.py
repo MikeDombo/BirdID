@@ -45,7 +45,7 @@ class Configuration(object):
 		self.calDir = '../../../data/2014_winter/256x256/vlfeat_training_jpg'
 
 		# Path where training data will be stored
-		self.dataDir = '../result-45-90'	 # should be resultDir or so
+		self.dataDir = '../tempresults/'	 # should be resultDir or so
 		if not exists(self.dataDir):
 			makedirs(self.dataDir)
 			print ("folder " + self.dataDir + " created")
@@ -140,7 +140,16 @@ def getPhowFeatures(imagedata, phowOpts): #extracts features from image
 def getPhowFeaturesMulti(imagedata, phowOpts, idx): #used in multiprocessing for training vocab
 	return [idx, getPhowFeatures(imagedata, phowOpts)[1]]
 
-def getImageDescriptor(model, im, idx): #gets histograms
+def getImageDescriptor(model, im, idx, imageName): #gets histograms
+	extension = -(len(imageName.rpartition('.')[2])+1) #find how long the extension is, ie .jpg
+	imageName = imageName.rpartition('/')[2][:extension] #get just the image name minus the extension and path
+	sift = str('-'.join(map(str, conf.phowOpts.Sizes)))
+	if not isdir(conf.imageCropPath+"histos/"):
+		mkdir(conf.imageCropPath+"histos/")
+	if isfile(conf.imageCropPath+"histos/"+imageName+'_'+sift+'.histo'):
+		with open(conf.imageCropPath+"histos/"+imageName+'_'+sift+'.histo', 'rb') as fp:
+			histo = load(fp)
+			return [idx, histo]
 	im = standardizeImage(im) #scale image to 640x480
 	height, width = im.shape[:2]
 	numWords = model.vocab.shape[1]
@@ -178,6 +187,8 @@ def getImageDescriptor(model, im, idx): #gets histograms
 	numTot = float(conf.numClasses*(conf.numTrain+conf.numTest)*(len(conf.rotation)+1))
 	sys.stdout.write ("\r"+str(datetime.now())+" Histograms Calculated: "+str(((idx+1)/numTot)*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
+	with open(conf.imageCropPath+"histos/"+imageName+'_'+sift+'.histo', 'wb') as fp:
+		dump(hist, fp)
 	return [idx, hist]
 
 def get_classes(datasetpath, numClasses): #find classes in the data folder
@@ -413,7 +424,7 @@ def computeHistograms(selTrain, selTest, all_images, model, conf):
 	hists = []
 	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
-	results = [pool.apply_async(getImageDescriptor, args=(model, imread(str(im)), ii)) for ii, im in enumerate(imgs)]
+	results = [pool.apply_async(getImageDescriptor, args=(model, imread(str(im)), ii, str(im))) for ii, im in enumerate(imgs)]
 	hists = [p.get() for p in results]
 	pool.terminate()
 	sorted(hists)
@@ -746,6 +757,6 @@ if __name__ == '__main__':
 		showFig(newaccuracy[1], conf)
 	print str(classification_report(newaccuracy[2], newaccuracy[3], target_names=classes))
 	precision = precision_score(newaccuracy[2], newaccuracy[3])
-	print str(precision)
+	print "precision ="+ str(precision)
 
 	saveCSV("phow_results.xlsx", newaccuracy[0], precision) #save data as excel spreadsheet
