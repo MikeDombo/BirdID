@@ -440,15 +440,12 @@ def saveCSV(file, accuracy, precision):
 	dat.append(str(conf.phowOpts.Sizes))
 	dat.append(str(SAMPLE_SEED))
 	dat.append(str(accuracy))
+	dat.append(str(precision))
 	dat.append(str(conf.numTrain))
 	dat.append(str(conf.numTest))
 	dat.append(str(conf.numClasses))
 	dat.append(str(conf.calDir))
-	dat.append(str(conf.imSize))
-	dat.append(str(conf.numWords))
-	dat.append(str(conf.numbers_of_features_for_histogram))
 	dat.append(str(conf.rotation))
-	dat.append(str(precision))
 
 	if isfile("phow_results.xlsx"): #create backup spreadsheet in case network is unmounted
 		wb = load_workbook("phow_results.xlsx", guess_types=True)
@@ -456,7 +453,7 @@ def saveCSV(file, accuracy, precision):
 	else:
 		wb = Workbook(guess_types=True)
 		ws = wb.active
-		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height', 'Number of K-Means Centroids', 'Number of Histogram Features', 'Rotation', 'Precision'])
+		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Recall', 'Precision', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Rotation'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
 
