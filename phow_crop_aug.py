@@ -74,17 +74,17 @@ class Configuration(object):
 		self.saveFig = False
 		self.showFig = False
 		self.removeBg = True
-		self.crop = True
-		self.augment = True
+		self.crop = False
+		self.augment = False
 		self.threshold = 1.05
 		self.images = {}
-		self.rotation = [-90, -45, 45, 90]
+		self.rotation = []
 		
 		self.vocabPath = join(self.dataDir, self.prefix + '-' + identifier + '-vocab.py.mat')
 		self.histPath = join(self.dataDir, self.prefix + '-'  + identifier + '-hists.py.mat')
 		self.modelPath = join(self.dataDir, self.prefix + '-' + identifier + '-model.py.mat')
 		self.resultPath = join(self.dataDir, self.prefix + '-' + identifier + '-result')
-		self.imageCropPath = join(self.dataDir, 'images/')
+		self.imageCropPath = join(self.dataDir, self.prefix+'-images/')
 
 		# tests and conversions
 		self.phowOpts.Sizes = ensure_type_array(self.phowOpts.Sizes)
@@ -247,9 +247,9 @@ def create_split(all_images, images_per_class, conf): #split files between train
 		selTest[i] = all_images.index(ii)
 
 	#crop all images
-	if conf.crop:
-		if not isdir(conf.imageCropPath):
+	if not isdir(conf.imageCropPath):
 			mkdir(conf.imageCropPath)
+	if conf.crop:
 		pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
 		result = [pool.apply_async(autoCrop, args=(i, img)) for i, img in enumerate(train+test)]
 		res = [p.get() for p in result]
