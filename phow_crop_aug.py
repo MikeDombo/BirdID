@@ -610,6 +610,7 @@ if __name__ == '__main__':
 	if args.rotation:
 		conf.rotation = args.rotation
 		conf.augment = True
+		conf.crop = True
 		if VERBOSE: print ("rotation = " + str(conf.rotation))
 	if args.num_core:
 		conf.numCore = args.num_core
