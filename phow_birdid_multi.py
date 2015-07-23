@@ -312,8 +312,8 @@ def saveCSV(file, accuracy):
 		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height', 'Number of K-Means Centroids', 'Number of Histogram Features'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
-	"""
-	ftp = ftplib.FTP()#enter server information here
+
+	ftp = ftplib.FTP('dombrowskivpn.mynetgear.com', "lbarnett-students", 'lbarnett-studentaccess')#enter server information here
 	ftp.set_pasv(False)
 	with open("temp.xlsx", 'wb') as f:
 		def callback(data):
@@ -325,7 +325,7 @@ def saveCSV(file, accuracy):
 	wb.save("temp.xlsx")
 	ftp.storbinary('STOR '+str(file), open('temp.xlsx','r'))
 	ftp.close()
-	remove('temp.xlsx')"""
+	remove('temp.xlsx')
 
 def showFig(images, conf):
 	axes = {}
@@ -342,11 +342,11 @@ def showFig(images, conf):
 		else:
 			x = 7
 			y = 5
-			while int(x)*y<len(images):
+			while (int(x)*y)<len(images):
 				y = y+1
-				x = y*(4/3)
+				x = y*(1.75)
 		x = int(x)
-		fig = plt.figure(figsize=(15,10))
+		fig = plt.figure(figsize=(16,10))
 		for i, im in enumerate(images):
 			axes[i] = fig.add_subplot(x,y,i+1)
 			axes[i].imshow(imread(im[0]))
@@ -564,6 +564,9 @@ if __name__ == '__main__':
 		if VERBOSE: print (str(datetime.now()) + ' testing svm')
 		predicted_classes = clf.predict(test_data)
 		true_classes = all_images_class_labels[selTest]
+                if VERBOSE:
+                        print("True classes", true_classes)
+                        print("Pred classes", predicted_classes)
 		accuracy = accuracy_score(true_classes, predicted_classes)
 		cm = confusion_matrix(true_classes, predicted_classes)
 

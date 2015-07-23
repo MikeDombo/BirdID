@@ -16,16 +16,35 @@ arg13=(8 9 10 11)
 arg14=(4 6 8 10 12)
 arg15=(4 6 8 10)
 arg16=(2 4 6 8 10)
-arg17=(2 4 6 8)
-arg18=(1)
-arg19=(4)
-arg20=(6)
-arg21=(4 8 12 16)
+arg17=(1)
+arg18=(4)
+arg19=(6)
+arg20=(4 8 12 16)
 
-for ((i=1; i<22; i+=1))
+
+#arg1=(-20 -10 10 20)
+#arg2=(-35 -20 -10 10 20 35)
+#arg3=(-45 -20 20 45)
+#arg4=(-90 -45 -20 20 45 90)
+#arg5=(-45 -35 -25 -10 10 25 35 45)
+#arg6=(-90 -45 -35 -20 -10 10 20 35 45 90)
+#arg7=(-45 -35 -25 -10 10 25 35 45)
+#arg8=(-35 -25 -20 -10 10 20 25 35)
+#arg9=(-25 -20 -10 10 20 25)
+#arg10=(-20 -10 -5 5 10 20)
+#arg11=(-10 -5 5 10)
+#arg12=(-35 -20 -10 -5 5 10 20 35)
+#arg13=(-35 -10 -5 5 10 35)
+
+for ((i=1; i<21; i+=1))
 do
 var=arg$i[@]
 
 echo 'running test '${!var}
-python phow_birdid_multi.py --image_dir "../remove-test" --dsift_size ${!var} --prefix "crop hsv 2 test dsift"
+python phow_crop_aug.py --image_dir "../training_2014_09_20" --dsift_size ${!var} --prefix "test rotations" --rotation -35 -20 -10 10 20 35
+done
+
+for i in {0..15}
+do
+python phow_crop_aug.py --image_dir "../training_2014_09_20" --dsift_size 2 4 6 8 --prefix "test rotations" --rotation -35 -20 -10 10 20 35 --sample_seed $((RANDOM*RANDOM*RANDOM))
 done

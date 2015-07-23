@@ -17,7 +17,7 @@ from vl_phow import vl_phow
 from vlfeat import vl_ikmeans
 from scipy.io import loadmat, savemat
 from sklearn import svm
-from sklearn.metrics import confusion_matrix, accuracy_score
+from sklearn.metrics import confusion_matrix, accuracy_score, classification_report, precision_score
 import matplotlib.pyplot as plt
 from datetime import datetime
 from sklearn.kernel_approximation import AdditiveChi2Sampler
@@ -45,7 +45,7 @@ class Configuration(object):
 		self.calDir = '../../../data/2014_winter/256x256/vlfeat_training_jpg'
 
 		# Path where training data will be stored
-		self.dataDir = '../result-45-90'	 # should be resultDir or so
+		self.dataDir = '../tempresults/'	 # should be resultDir or so
 		if not exists(self.dataDir):
 			makedirs(self.dataDir)
 			print ("folder " + self.dataDir + " created")
@@ -73,17 +73,18 @@ class Configuration(object):
 		
 		self.saveFig = False
 		self.showFig = False
-		self.removeBg = True
+		self.removeBg = False
 		self.crop = True
 		self.augment = True
 		self.threshold = 1.05
 		self.images = {}
-		self.rotation = [-90, -45, 45, 90]
+		self.rotation = [-35, -20, -10, 10, 20, 35]
 		
 		self.vocabPath = join(self.dataDir, self.prefix + '-' + identifier + '-vocab.py.mat')
 		self.histPath = join(self.dataDir, self.prefix + '-'  + identifier + '-hists.py.mat')
 		self.modelPath = join(self.dataDir, self.prefix + '-' + identifier + '-model.py.mat')
 		self.resultPath = join(self.dataDir, self.prefix + '-' + identifier + '-result')
+		self.imageCropPath = join(self.dataDir, self.prefix+'-images/')
 
 		# tests and conversions
 		self.phowOpts.Sizes = ensure_type_array(self.phowOpts.Sizes)
@@ -139,7 +140,16 @@ def getPhowFeatures(imagedata, phowOpts): #extracts features from image
 def getPhowFeaturesMulti(imagedata, phowOpts, idx): #used in multiprocessing for training vocab
 	return [idx, getPhowFeatures(imagedata, phowOpts)[1]]
 
-def getImageDescriptor(model, im, idx): #gets histograms
+def getImageDescriptor(model, im, idx, imageName): #gets histograms
+	extension = -(len(imageName.rpartition('.')[2])+1) #find how long the extension is, ie .jpg
+	imageName = imageName.rpartition('/')[2][:extension] #get just the image name minus the extension and path
+	sift = str('-'.join(map(str, conf.phowOpts.Sizes)))
+	if not isdir(conf.imageCropPath+"histos/"):
+		mkdir(conf.imageCropPath+"histos/")
+	if isfile(conf.imageCropPath+"histos/"+imageName+'_'+sift+'.histo'):
+		with open(conf.imageCropPath+"histos/"+imageName+'_'+sift+'.histo', 'rb') as fp:
+			histo = load(fp)
+			return [idx, histo]
 	im = standardizeImage(im) #scale image to 640x480
 	height, width = im.shape[:2]
 	numWords = model.vocab.shape[1]
@@ -157,10 +167,7 @@ def getImageDescriptor(model, im, idx): #gets histograms
 		binsx, distsx = vq(frames[0, :], linspace(0, width, n_spatial_bins_x))
 		binsy, distsy = vq(frames[1, :], linspace(0, height, n_spatial_bins_y))
 		# binsx and binsy list to what spatial bin each feature point belongs to
-		if (numpy.any(distsx < 0)) | (numpy.any(distsx > (width/n_spatial_bins_x+0.5))):
-			print ("something went wrong")
-			import pdb; pdb.set_trace()
-		if (numpy.any(distsy < 0)) | (numpy.any(distsy > (height/n_spatial_bins_y+0.5))):
+		if (numpy.any(distsx < 0)) | (numpy.any(distsx > (width/n_spatial_bins_x+0.5))) | (numpy.any(distsy > (height/n_spatial_bins_y+0.5))):
 			print ("something went wrong")
 			import pdb; pdb.set_trace()
 		# combined quantization
@@ -177,6 +184,8 @@ def getImageDescriptor(model, im, idx): #gets histograms
 	numTot = float(conf.numClasses*(conf.numTrain+conf.numTest)*(len(conf.rotation)+1))
 	sys.stdout.write ("\r"+str(datetime.now())+" Histograms Calculated: "+str(((idx+1)/numTot)*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
+	with open(conf.imageCropPath+"histos/"+imageName+'_'+sift+'.histo', 'wb') as fp:
+		dump(hist, fp)
 	return [idx, hist]
 
 def get_classes(datasetpath, numClasses): #find classes in the data folder
@@ -238,9 +247,9 @@ def create_split(all_images, images_per_class, conf): #split files between train
 		selTest[i] = all_images.index(ii)
 
 	#crop all images
+	if not isdir(conf.imageCropPath):
+			mkdir(conf.imageCropPath)
 	if conf.crop:
-		if not isdir(conf.dataDir+"/images/"):
-			mkdir(conf.dataDir+"/images/")
 		pool = multiprocessing.Pool(processes=multiprocessing.cpu_count())
 		result = [pool.apply_async(autoCrop, args=(i, img)) for i, img in enumerate(train+test)]
 		res = [p.get() for p in result]
@@ -266,13 +275,15 @@ def trim(im, color): #crop based on the binary image to zoom into the largest ar
         return color.crop(bbox) #actually returns the cropped image color, not im
 
 def autoCrop(imName, img): #background remove and then crop
-	if isfile(conf.dataDir+"/images/"+str(imName)+"_0.jpg"):
-		imAug = [conf.dataDir+"/images/"+str(imName)+"_0.jpg"]
+	extension = -(len(img.rpartition('.')[2])+1) #find how long the extension is, ie .jpg
+	imageName = img.rpartition('/')[2][:extension] #get just the image name minus the extension and path
+	if isfile(conf.imageCropPath+str(imageName)+"_0.jpg"):
+		imAug = [conf.imageCropPath+str(imageName)+"_0.jpg"]
 		if conf.augment:
 			allRotated = True
 			for rot in conf.rotation:
-				if isfile(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg"):
-					imAug.append(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg")
+				if isfile(conf.imageCropPath+str(imageName)+"_"+str(rot)+".jpg"):
+					imAug.append(conf.imageCropPath+str(imageName)+"_"+str(rot)+".jpg")
 				else:
 					allRotated = False
 			if allRotated:
@@ -281,7 +292,7 @@ def autoCrop(imName, img): #background remove and then crop
 			return [img, imAug]
 	im = imread(img)
 	imOrig = imread(img)
-	imAug = [conf.dataDir+"/images/"+str(imName)+"_0.jpg"]
+	imAug = [conf.imageCropPath+str(imageName)+"_0.jpg"]
 	x, y, z = im.shape
 	binary_im = np.empty([x,y],np.uint8)
 	r,g,b=Image.fromarray(im).getpixel((0,0))
@@ -343,7 +354,7 @@ def autoCrop(imName, img): #background remove and then crop
 		imCrop = trim(Image.fromarray(max_feature), Image.fromarray(imCrop)) #crop image
 		binary_im = binary_im2
 
-	imsave(conf.dataDir+"/images/"+str(imName)+"_0.jpg", imCrop) #save final photo
+	imsave(conf.imageCropPath+str(imageName)+"_0.jpg", imCrop) #save final photo
 
 	if conf.augment:
 		if not conf.removeBg: #check if background should be included or removed in final output
@@ -352,8 +363,8 @@ def autoCrop(imName, img): #background remove and then crop
 			imCrop = im
 		for rot in conf.rotation:
 			imCropped = trim(Image.fromarray(interpolation.rotate(max_feature, rot, reshape=False)), Image.fromarray(interpolation.rotate(imCrop, rot, reshape=False)))
-			imsave(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg", imCropped)
-			imAug.append(conf.dataDir+"/images/"+str(imName)+"_"+str(rot)+".jpg")
+			imsave(conf.imageCropPath+str(imageName)+"_"+str(rot)+".jpg", imCropped)
+			imAug.append(conf.imageCropPath+str(imageName)+"_"+str(rot)+".jpg")
 	
 	sys.stdout.write("\r"+str(datetime.now())+" AutoCropped Images: "+str((imName/float((conf.numTrain+conf.numTest)*conf.numClasses))*100.0)[:5]+"%") #make progress percentage
 	sys.stdout.flush()
@@ -410,7 +421,7 @@ def computeHistograms(selTrain, selTest, all_images, model, conf):
 	hists = []
 	#start multiprocessing block
 	pool = multiprocessing.Pool(processes=conf.numCore)
-	results = [pool.apply_async(getImageDescriptor, args=(model, imread(str(im)), ii)) for ii, im in enumerate(imgs)]
+	results = [pool.apply_async(getImageDescriptor, args=(model, imread(str(im)), ii, str(im))) for ii, im in enumerate(imgs)]
 	hists = [p.get() for p in results]
 	pool.terminate()
 	sorted(hists)
@@ -421,7 +432,7 @@ def computeHistograms(selTrain, selTest, all_images, model, conf):
 	print "" #puts in a new line to separate histogram percentage
 	return hists
 
-def saveCSV(file, accuracy):
+def saveCSV(file, accuracy, precision):
 	dat = []
 	dat.append(datetime.now())
 	dat.append(str(PREFIX))
@@ -429,13 +440,11 @@ def saveCSV(file, accuracy):
 	dat.append(str(conf.phowOpts.Sizes))
 	dat.append(str(SAMPLE_SEED))
 	dat.append(str(accuracy))
+	dat.append(str(precision))
 	dat.append(str(conf.numTrain))
 	dat.append(str(conf.numTest))
 	dat.append(str(conf.numClasses))
 	dat.append(str(conf.calDir))
-	dat.append(str(conf.imSize))
-	dat.append(str(conf.numWords))
-	dat.append(str(conf.numbers_of_features_for_histogram))
 	dat.append(str(conf.rotation))
 
 	if isfile("phow_results.xlsx"): #create backup spreadsheet in case network is unmounted
@@ -444,7 +453,7 @@ def saveCSV(file, accuracy):
 	else:
 		wb = Workbook(guess_types=True)
 		ws = wb.active
-		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Accuracy', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Image Resize Height', 'Number of K-Means Centroids', 'Number of Histogram Features', 'Rotation'])
+		ws.append(['Time Completed', 'Prefix', 'Identifier', 'Dsift Sizes', 'Sample Seed', 'Recall', 'Precision', 'Number of Train', 'Number of Test', 'Number of Classes', 'Image Path', 'Rotation'])
 	ws.append(dat)
 	wb.save("phow_results.xlsx")
 
@@ -495,17 +504,21 @@ def showFig(images, conf):
 def newAccuracy(true_classes, predicted_classes):
 	misid = 0
 	wrong = []
+	newTrue = []
+	newPrediction = []
 	classGuess = np.zeros(len(conf.rotation)+1)
 	for i in range(0, conf.numTest*conf.numClasses*(len(conf.rotation)+1)):
 		classGuess[i%(len(conf.rotation)+1)] = predicted_classes[i]
 		if i%(len(conf.rotation)+1) == len(conf.rotation):
 			classGuess = list(classGuess)
 			finalGuess = max(classGuess, key=classGuess.count)
+			newTrue.append(true_classes[i])
+			newPrediction.append(finalGuess)
 			if finalGuess != true_classes[i]:
 				misid = misid+1
 				wrong.append([all_images[selTest[i]], {'trueclass':true_classes[i],'predictedclass':finalGuess}, i])
 	originalNumBirds = float(len(true_classes)/(len(conf.rotation)+1))
-	return [(1.0-(misid/originalNumBirds)), wrong]
+	return [(1.0-(misid/originalNumBirds)), wrong, newTrue, newPrediction]
 
 ################
 # Main Program #
@@ -597,6 +610,7 @@ if __name__ == '__main__':
 	if args.rotation:
 		conf.rotation = args.rotation
 		conf.augment = True
+		conf.crop = True
 		if VERBOSE: print ("rotation = " + str(conf.rotation))
 	if args.num_core:
 		conf.numCore = args.num_core
@@ -736,5 +750,8 @@ if __name__ == '__main__':
 	if conf.showFig:
 		#Generate Figure of misidentified images
 		showFig(newaccuracy[1], conf)
-	
-	saveCSV("phow_results.xlsx", newaccuracy[0]) #save data as excel spreadsheet
+	print str(classification_report(newaccuracy[2], newaccuracy[3], target_names=classes))
+	precision = precision_score(newaccuracy[2], newaccuracy[3])
+	print "precision ="+ str(precision)
+
+	saveCSV("phow_results.xlsx", newaccuracy[0], precision) #save data as excel spreadsheet
