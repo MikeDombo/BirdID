@@ -73,12 +73,12 @@ class Configuration(object):
 		
 		self.saveFig = False
 		self.showFig = False
-		self.removeBg = True
-		self.crop = False
-		self.augment = False
+		self.removeBg = False
+		self.crop = True
+		self.augment = True
 		self.threshold = 1.05
 		self.images = {}
-		self.rotation = []
+		self.rotation = [-35, -20, -10, 10, 20, 35]
 		
 		self.vocabPath = join(self.dataDir, self.prefix + '-' + identifier + '-vocab.py.mat')
 		self.histPath = join(self.dataDir, self.prefix + '-'  + identifier + '-hists.py.mat')
